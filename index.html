@@ -1312,6 +1312,7 @@ function clearInvoiceCart(){
   state.invoiceDateDraft = state.activeDate;
   renderFacturas();
   if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();
 }
 
 function deleteInvoice(invoiceId){
@@ -1338,6 +1339,11 @@ function deleteInvoice(invoiceId){
   state.invoices = state.invoices.filter(x=>x.id!==invoiceId);
   renderFacturas();
   if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+    syncDuenoChangesToBranch(bid);
+  } else if(typeof syncDuenoOnShiftClose==='function'){
+    syncDuenoOnShiftClose();
+  }
 }
 
 function openEditInvoice(invoiceId){
@@ -1418,6 +1424,7 @@ function saveProductInvoice(){
   state.invoiceDateDraft = state.activeDate;
   renderFacturas();
   if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();
 }
 
 function renderRepartidores(){
@@ -1757,8 +1764,14 @@ function saveOrder(){if(!state.cart.length) return alert('No hay pedido'); if(!s
       });
       item.components = comps;
       applyStock(item.components, -item.qty);
-    }); state.orders.unshift({id:uid(),date:state.activeDate,branchId:workingBranchId(),branchName:branch().name,createdBy:state.currentUser.name,courierId:state.selectedCourierId,courierName:c.name,time:nowTime(),items:savedCart,subtotal:subtotal(),transbankFee:transbankFee(),total:total(),paymentMode:state.paymentMode,payments}); cancelOrder(); state.selectedHistoryDate=state.activeDate; state.view='libro'; render(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
-function deleteSale(orderId){ if(!confirm('¿Eliminar este pedido?')) return; const idx=state.orders.findIndex(o=>o.id===orderId); if(idx<0) return; const order=state.orders[idx]; order.items.forEach(item=>applyStock(item.components,item.qty)); state.audit.push({action:'Venta eliminada',user:state.currentUser.name,date:nowDateLocal(),time:nowTime(),detail:`Pedido ${order.id} eliminado por error de registro`}); state.orders.splice(idx,1); render(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+    }); state.orders.unshift({id:uid(),date:state.activeDate,branchId:workingBranchId(),branchName:branch().name,createdBy:state.currentUser.name,courierId:state.selectedCourierId,courierName:c.name,time:nowTime(),items:savedCart,subtotal:subtotal(),transbankFee:transbankFee(),total:total(),paymentMode:state.paymentMode,payments}); cancelOrder(); state.selectedHistoryDate=state.activeDate; state.view='libro'; render(); if(typeof window._fbSaveState==='function') window._fbSaveState(); if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();}
+function deleteSale(orderId){ if(!confirm('¿Eliminar este pedido?')) return; const idx=state.orders.findIndex(o=>o.id===orderId); if(idx<0) return; const order=state.orders[idx]; order.items.forEach(item=>applyStock(item.components,item.qty)); state.audit.push({action:'Venta eliminada',user:state.currentUser.name,date:nowDateLocal(),time:nowTime(),detail:`Pedido ${order.id} eliminado por error de registro`}); state.orders.splice(idx,1); render(); if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+    syncDuenoChangesToBranch(order.branchId);
+  } else if(typeof syncDuenoOnShiftClose==='function'){
+    syncDuenoOnShiftClose();
+  }
+}
 function openEditOrder(orderId){
   const order = state.orders.find(o=>o.id===orderId);
   if(!order) return;
@@ -2069,6 +2082,30 @@ function getDocKey(){
 }
 
 // ============================================================
+//  Propagar cambios del dueño a la sucursal correspondiente
+//  Se llama cuando el dueño elimina/edita pedidos o facturas
+// ============================================================
+async function syncDuenoChangesToBranch(branchId){
+  if(!branchId || branchId === 'all') return;
+  try{
+    setSyncStatus('Sincronizando sucursal…', '#6b7280');
+    // Filtrar los datos del state actual del dueño para esa sucursal
+    const branchSnap = await getDoc(doc(db, 'pos', branchId));
+    if(!branchSnap.exists()) return;
+    const branchData = branchSnap.data();
+    // Actualizar orders e invoices de esa sucursal con los del state del dueño
+    branchData.orders        = (state.orders||[]).filter(o=>o.branchId===branchId);
+    branchData.invoices      = (state.invoices||[]).filter(i=>i.branchId===branchId);
+    branchData.shiftClosures = (state.shiftClosures||[]).filter(s=>s.branchId===branchId);
+    await setDoc(doc(db, 'pos', branchId), branchData);
+    setSyncStatus('✓ Sincronizado', '#16a34a');
+  }catch(e){
+    setSyncStatus('⚠ Error al sincronizar', '#dc2626');
+    console.error('syncDuenoChangesToBranch error:', e);
+  }
+}
+
+// ============================================================
 //  Indicador visual de sincronización
 // ============================================================
 function setSyncStatus(msg, color){
@@ -2095,9 +2132,6 @@ let _saveTimer = null;
 async function savePersistentState(){
   const key = getDocKey();
   if(!key) return; // no hay sesión activa, no guardar
-
-  // El dueño NO guarda con cada acción — solo al cerrar turno
-  if(key === 'dueno') return;
 
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(async ()=>{
