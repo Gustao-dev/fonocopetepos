@@ -333,8 +333,8 @@ function refreshMixedSummary(){
   }
 }
 function roleVisible(key){
-  if(key==='users' || key==='mayor' || key==='admin') return (state.currentUser.role==='dueno');
-  if(key==='capital' || key==='facturas') return (state.currentUser.role==='dueno' || state.currentUser.role==='encargado');
+  if(key==='users' || key==='admin') return (state.currentUser.role==='dueno');
+  if(key==='mayor' || key==='capital' || key==='facturas') return (state.currentUser.role==='dueno' || state.currentUser.role==='encargado');
   return true;
 }
 function allDates(){return [...new Set(branchOrders().map(o=>o.date))].sort((a,b)=>parseDMY(b)-parseDMY(a))}
