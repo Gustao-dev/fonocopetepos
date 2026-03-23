@@ -1,0 +1,2376 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POS Fonocopete · Simplemente no fallamos LIMPIO ESTABLE v34</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--text:#111827;--muted:#6b7280;--orange:#f97316;--orange2:#fb923c;--border:#e5e7eb;--green:#16a34a;--red:#dc2626}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+.hidden{display:none}.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card,.card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px}
+.login-card{width:min(420px,100%)}h1,h2,h3,h4{margin:0 0 10px}
+input,select,button{font:inherit}.field{margin-bottom:10px}label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.btn{border:none;border-radius:12px;padding:10px 12px;cursor:pointer}.btn-primary{background:var(--orange);color:#111827;font-weight:700}.btn-secondary{background:#f3f4f6;color:#111827}.btn-danger{background:#dc2626;color:#fff}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.sidebar{background:#0f172a;color:#fff;padding:18px}.brand{font-size:24px;font-weight:700;color:var(--orange2)}.sub{font-size:12px;color:#cbd5e1;margin:4px 0 16px}
+.menu button{display:block;width:100%;margin:8px 0;padding:10px 12px;border:none;border-radius:12px;background:#1e293b;color:#fff;text-align:left;cursor:pointer}.menu button.active,.menu button:hover{background:var(--orange);color:#111827;font-weight:700}
+.main{padding:18px}.top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.stat{font-size:26px;font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 420px;gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:12px}.tab{padding:10px 14px;border:1px solid var(--border);background:#fff;border-radius:999px;cursor:pointer;white-space:nowrap}.tab.active{background:var(--orange);border-color:var(--orange);font-weight:700}
+.prod{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;min-height:110px}.prod:hover{border-color:var(--orange)}
+.muted{color:var(--muted)}.orange{color:var(--orange)}.red{color:var(--red)}.green{color:var(--green)}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f3f4f6;font-size:12px;margin-right:6px}.item{border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff;margin-bottom:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap}.between{display:flex;justify-content:space-between;gap:12px;align-items:center}.small{font-size:12px}
+.table-row{display:grid;grid-template-columns:90px 140px 1fr 120px 120px 110px;gap:10px;align-items:center;border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff;margin-bottom:8px}
+.list{max-height:480px;overflow:auto}
+@media (max-width: 1000px){.app{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}.grid2,.grid3{grid-template-columns:1fr}.table-row{grid-template-columns:90px 1fr 110px}.hide-mobile{display:none}}
+
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+
+</style>
+</head>
+<body>
+
+<div id="loginRoot" class="login-wrap">
+  <div class="login-card">
+    <h2>POS Fonocopete · Simplemente no fallamos</h2>
+    <div class="muted" style="margin-bottom:12px">Ingreso por trabajador y rol</div>
+    <div class="field"><label>Usuario</label><select id="loginUser" class="input"></select></div>
+    <div class="field"><label>Contraseña</label><input id="loginPass" class="input" type="password" placeholder="Escribe tu clave"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="login()">Ingresar</button>
+    <div class="muted small" style="margin-top:10px">Versión local de prueba. Selecciona usuario y presiona Ingresar.</div>
+  </div>
+</div>
+
+<div id="appRoot" class="app hidden">
+  <aside class="sidebar">
+    <div class="brand">POS Fonocopete · Simplemente no fallamos</div>
+    <div class="sub" id="sidebarUser"></div>
+    <div class="menu" id="menu"></div>
+  </aside>
+  <main class="main">
+    <div class="top">
+      <div><h1 style="margin-bottom:6px">POS Fonocopete · Simplemente no fallamos LIMPIO ESTABLE v34</h1><div class="muted" id="topBranch"></div></div>
+      <div class="row"><button class="btn btn-secondary" onclick="logout()">Salir</button></div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><h4>Ventas día</h4><div class="stat" id="kpiSales">-</div></div>
+      <div class="card"><h4>Pedidos día</h4><div class="stat" id="kpiOrders">-</div></div>
+      <div class="card"><h4>Fecha activa</h4><div class="stat" style="font-size:20px" id="kpiDate">-</div></div>
+      <div class="card"><h4>Turno</h4><div class="stat" id="kpiTurn">-</div></div>
+    </div>
+
+    <section id="view-dashboard" class="view"></section>
+    <section id="view-venta" class="view hidden"></section>
+    <section id="view-libro" class="view hidden"></section>
+    <section id="view-mayor" class="view hidden"></section>
+    <section id="view-capital" class="view hidden"></section>
+    <section id="view-facturas" class="view hidden"></section>
+    <section id="view-repartidores" class="view hidden"></section>
+    <section id="view-inventario" class="view hidden"></section>
+    <section id="view-productos" class="view hidden"></section>
+    <section id="view-usuarios" class="view hidden"></section>
+    <section id="view-turno" class="view hidden"></section>
+    <section id="view-admin" class="view hidden"></section>
+  </main>
+</div>
+
+<script>
+const state = {
+  currentUser:null, view:'dashboard', turnOpen:true, activeDate:'12-03-2026', dashboardPeriod:'dia', dashboardFrom:'10-03-2026', dashboardTo:'12-03-2026', shiftName:'Turno noche', selectedHistoryDate:'12-03-2026', selectedCourierDate:'12-03-2026', selectedOwnerBranchId:'conce', invoices:[], invoiceCart:[], invoiceDetail:'', invoiceDateDraft:'', capitalIncreases:{}, fuelExpense:'', cashCounted:'', fuelExpenseDrafts:{}, cashCountedDrafts:{}, monthlyExpenses:{}, ownerViewMonthKey:'', facturasMonthKey:'', mayorMonthKey:'03-2026', mayorManualIva:'', mayorManualSueldos1:'', mayorManualSueldos2:'', mayorManualRelativos:'', mayorManualOtros:'',
+  category:'Piscos', query:'', cart:[], pendingPromo:null, libroCourierFilter:'todos', _changingDrinkCartId:null,
+  lastOrder:null, promoDrinkId:'', paymentMode:'efectivo', selectedCourierId:'', mixEf:0, mixTr:0, mixTb:0, audit:[], shiftClosures:[],
+  users:[
+    {id:'u1',name:'Dueño',role:'dueno',branchId:'conce',username:'dueno',password:'2812'},
+    {id:'u2',name:'Martín Álvarez',role:'encargado',branchId:'conce',username:'martin',password:'1234'},
+    {id:'u3',name:'Gustavo Henriquez',role:'encargado',branchId:'conce',username:'gustavo',password:'1234'},
+    {id:'u4',name:'Operador Conce',role:'operador',branchId:'conce',username:'operador',password:'1111'},
+    {id:'u5',name:'Alexander Iturra',role:'encargado',branchId:'la',username:'alexander',password:'1234'},
+    {id:'u6',name:'Encargado Chillán',role:'encargado',branchId:'chi',username:'encargadochi',password:'1234'}
+  ,
+    {id:'u_op_la',name:'Operador LA',role:'operador',branchId:'la',username:'operadorla',password:'1111'},
+    {id:'u_op_chi',name:'Operador Chillán',role:'operador',branchId:'chi',username:'operadorchi',password:'1111'}],
+  branches:[
+    {id:'conce',name:'Fonocopete Concepción',city:'Concepción'},
+    {id:'la',name:'Fonocopete Los Ángeles',city:'Los Ángeles'},
+    {id:'chi',name:'Fonocopete Chillán',city:'Chillán'}
+  ],
+  categories:['Piscos','Whisky','Otros licores','Cervezas','Vinos','Cócteles','Bebidas','Cigarros','Extras','Reparto'],
+  couriers:[
+    {id:'c1',name:'Nicolás López',branchId:'conce',active:true},
+    {id:'c2',name:'Leonardo',branchId:'conce',active:true},
+    {id:'c3',name:'Manuel Guzmán',branchId:'conce',active:true},
+    {id:'c4',name:'Alexander Iturra',branchId:'la',active:true}
+  ],
+  products:[
+    {id:'beer_silver',name:'Silver',category:'Cervezas',salePrice:7000,type:'simple',active:true,trackStock:true},
+    {id:'beer_cristal',name:'Cristal',category:'Cervezas',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'beer_royal',name:'Royal',category:'Cervezas',salePrice:9000,type:'simple',active:true,trackStock:true},
+    {id:'beer_bud',name:'Budweiser',category:'Cervezas',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'beer_heineken',name:'Heineken',category:'Cervezas',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'beer_corona',name:'Corona',category:'Cervezas',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'beer_austral',name:'Austral Calafate',category:'Cervezas',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'beer_kunstmann',name:'Kunstmann',category:'Cervezas',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'cig_americanos',name:'Americanos',category:'Cigarros',salePrice:5000,type:'simple',active:true,trackStock:true},
+    {id:'cig_pallmall_azul',name:'Pall Mall Azul',category:'Cigarros',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'cig_pallmall_click',name:'Pall Mall Doble Click',category:'Cigarros',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'cig_kent_manzana',name:'Kent Manzana',category:'Cigarros',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'cig_kent_rosado',name:'Kent Rosado',category:'Cigarros',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'cig_lucky_click',name:'Lucky Click',category:'Cigarros',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'cig_lucky_naranja',name:'Lucky Naranja',category:'Cigarros',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'cig_lucky_berries',name:'Lucky Berries',category:'Cigarros',salePrice:8000,type:'simple',active:true,trackStock:true},
+    {id:'pisco_mistral',name:'Mistral',category:'Piscos',salePrice:16000,type:'simple',active:true,trackStock:true},
+    {id:'pisco_mistral_15',name:'Mistral + 1.5lt',category:'Piscos',salePrice:18000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_mistral',drinkSize:'1.5'},
+    {id:'pisco_mistral_3',name:'Mistral + 3lt',category:'Piscos',salePrice:20000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_mistral',drinkSize:'3'},
+    {id:'pisco_alto',name:'Alto',category:'Piscos',salePrice:16000,type:'simple',active:true,trackStock:true},
+    {id:'pisco_alto_15',name:'Alto + 1.5lt',category:'Piscos',salePrice:18000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_alto',drinkSize:'1.5'},
+    {id:'pisco_alto_3',name:'Alto + 3lt',category:'Piscos',salePrice:20000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_alto',drinkSize:'3'},
+    {id:'pisco_manzana',name:'Mistral Manzana',category:'Piscos',salePrice:23000,type:'simple',active:true,trackStock:true},
+    {id:'pisco_manzana_15',name:'Mistral Manzana + 1.5lt',category:'Piscos',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_manzana',drinkSize:'1.5'},
+    {id:'pisco_manzana_3',name:'Mistral Manzana + 3lt',category:'Piscos',salePrice:27000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_manzana',drinkSize:'3'},
+    {id:'pisco_barrica',name:'Mistral Barrica',category:'Piscos',salePrice:23000,type:'simple',active:true,trackStock:true},
+    {id:'pisco_barrica_15',name:'Mistral Barrica + 1.5lt',category:'Piscos',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_barrica',drinkSize:'1.5'},
+    {id:'pisco_barrica_3',name:'Mistral Barrica + 3lt',category:'Piscos',salePrice:27000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_barrica',drinkSize:'3'},
+    {id:'pisco_40',name:'Mistral 40',category:'Piscos',salePrice:23000,type:'simple',active:true,trackStock:true},
+    {id:'pisco_40_15',name:'Mistral 40 + 1.5lt',category:'Piscos',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_40',drinkSize:'1.5'},
+    {id:'pisco_40_3',name:'Mistral 40 + 3lt',category:'Piscos',salePrice:27000,type:'promo',active:true,trackStock:true,baseProductId:'pisco_40',drinkSize:'3'},
+    {id:'wh_blenders_manzana',name:'Blenders Manzana',category:'Whisky',salePrice:18000,type:'simple',active:true,trackStock:true},
+    {id:'wh_blenders_manzana_15',name:'Blenders Manzana + 1.5lt',category:'Whisky',salePrice:20000,type:'promo',active:true,trackStock:true,baseProductId:'wh_blenders_manzana',drinkSize:'1.5'},
+    {id:'wh_blenders_manzana_3',name:'Blenders Manzana + 3lt',category:'Whisky',salePrice:22000,type:'promo',active:true,trackStock:true,baseProductId:'wh_blenders_manzana',drinkSize:'3'},
+    {id:'wh_blenders_miel',name:'Blenders Miel',category:'Whisky',salePrice:18000,type:'simple',active:true,trackStock:true},
+    {id:'wh_blenders_miel_15',name:'Blenders Miel + 1.5lt',category:'Whisky',salePrice:20000,type:'promo',active:true,trackStock:true,baseProductId:'wh_blenders_miel',drinkSize:'1.5'},
+    {id:'wh_blenders_miel_3',name:'Blenders Miel + 3lt',category:'Whisky',salePrice:22000,type:'promo',active:true,trackStock:true,baseProductId:'wh_blenders_miel',drinkSize:'3'},
+    {id:'wh_ballantines',name:'Ballantines',category:'Whisky',salePrice:18000,type:'simple',active:true,trackStock:true},
+    {id:'wh_ballantines_15',name:'Ballantines + 1.5lt',category:'Whisky',salePrice:20000,type:'promo',active:true,trackStock:true,baseProductId:'wh_ballantines',drinkSize:'1.5'},
+    {id:'wh_ballantines_3',name:'Ballantines + 3lt',category:'Whisky',salePrice:22000,type:'promo',active:true,trackStock:true,baseProductId:'wh_ballantines',drinkSize:'3'},
+    {id:'wh_jony_rojo',name:'Jony Rojo',category:'Whisky',salePrice:21000,type:'simple',active:true,trackStock:true},
+    {id:'wh_jony_rojo_15',name:'Jony Rojo + 1.5lt',category:'Whisky',salePrice:23000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jony_rojo',drinkSize:'1.5'},
+    {id:'wh_jony_rojo_3',name:'Jony Rojo + 3lt',category:'Whisky',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jony_rojo',drinkSize:'3'},
+    {id:'wh_jony_negro',name:'Jony Negro',category:'Whisky',salePrice:48000,type:'simple',active:true,trackStock:true},
+    {id:'wh_jony_negro_15',name:'Jony Negro + 1.5lt',category:'Whisky',salePrice:50000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jony_negro',drinkSize:'1.5'},
+    {id:'wh_jony_negro_3',name:'Jony Negro + 3lt',category:'Whisky',salePrice:52000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jony_negro',drinkSize:'3'},
+    {id:'wh_jack_manzana',name:'Jack Manzana',category:'Whisky',salePrice:43000,type:'simple',active:true,trackStock:true},
+    {id:'wh_jack_manzana_15',name:'Jack Manzana + 1.5lt',category:'Whisky',salePrice:45000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jack_manzana',drinkSize:'1.5'},
+    {id:'wh_jack_manzana_3',name:'Jack Manzana + 3lt',category:'Whisky',salePrice:47000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jack_manzana',drinkSize:'3'},
+    {id:'wh_jack_miel',name:'Jack Miel',category:'Whisky',salePrice:43000,type:'simple',active:true,trackStock:true},
+    {id:'wh_jack_miel_15',name:'Jack Miel + 1.5lt',category:'Whisky',salePrice:45000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jack_miel',drinkSize:'1.5'},
+    {id:'wh_jack_miel_3',name:'Jack Miel + 3lt',category:'Whisky',salePrice:47000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jack_miel',drinkSize:'3'},
+    {id:'wh_jack_negro',name:'Jack Negro',category:'Whisky',salePrice:42000,type:'simple',active:true,trackStock:true},
+    {id:'wh_jack_negro_15',name:'Jack Negro + 1.5lt',category:'Whisky',salePrice:45000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jack_negro',drinkSize:'1.5'},
+    {id:'wh_jack_negro_3',name:'Jack Negro + 3lt',category:'Whisky',salePrice:47000,type:'promo',active:true,trackStock:true,baseProductId:'wh_jack_negro',drinkSize:'3'},
+    {id:'liq_ron_blanco',name:'Ron Blanco',category:'Otros licores',salePrice:14000,type:'simple',active:true,trackStock:true},
+    {id:'liq_ron_blanco_15',name:'Ron Blanco + 1.5lt',category:'Otros licores',salePrice:16000,type:'promo',active:true,trackStock:true,baseProductId:'liq_ron_blanco',drinkSize:'1.5'},
+    {id:'liq_ron_blanco_3',name:'Ron Blanco + 3lt',category:'Otros licores',salePrice:18000,type:'promo',active:true,trackStock:true,baseProductId:'liq_ron_blanco',drinkSize:'3'},
+    {id:'liq_ron_havana',name:'Ron Havana',category:'Otros licores',salePrice:16000,type:'simple',active:true,trackStock:true},
+    {id:'liq_ron_havana_15',name:'Ron Havana + 1.5lt',category:'Otros licores',salePrice:18000,type:'promo',active:true,trackStock:true,baseProductId:'liq_ron_havana',drinkSize:'1.5'},
+    {id:'liq_ron_havana_3',name:'Ron Havana + 3lt',category:'Otros licores',salePrice:20000,type:'promo',active:true,trackStock:true,baseProductId:'liq_ron_havana',drinkSize:'3'},
+    {id:'liq_vodka_black',name:'Vodka Black',category:'Otros licores',salePrice:16000,type:'simple',active:true,trackStock:true},
+    {id:'liq_vodka_black_15',name:'Vodka Black + 1.5lt',category:'Otros licores',salePrice:18000,type:'promo',active:true,trackStock:true,baseProductId:'liq_vodka_black',drinkSize:'1.5'},
+    {id:'liq_vodka_black_3',name:'Vodka Black + 3lt',category:'Otros licores',salePrice:20000,type:'promo',active:true,trackStock:true,baseProductId:'liq_vodka_black',drinkSize:'3'},
+    {id:'liq_tequila',name:'Tequila Sombrero Negro',category:'Otros licores',salePrice:18000,type:'simple',active:true,trackStock:true},
+    {id:'liq_ramazzotti',name:'Ramazzoti',category:'Otros licores',salePrice:19000,type:'simple',active:true,trackStock:true},
+    {id:'liq_ramazzotti_15',name:'Ramazzoti + 1.5lt',category:'Otros licores',salePrice:21000,type:'promo',active:true,trackStock:true,baseProductId:'liq_ramazzotti',drinkSize:'1.5'},
+    {id:'liq_ramazzotti_3',name:'Ramazzoti + 3lt',category:'Otros licores',salePrice:23000,type:'promo',active:true,trackStock:true,baseProductId:'liq_ramazzotti',drinkSize:'3'},
+    {id:'liq_ramazzotti_esp',name:'Ramazzoti + espumante',category:'Otros licores',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'liq_ramazzotti',specialProductId:'wine_esp_moscato'},
+    {id:'liq_jagger',name:'Jagger',category:'Otros licores',salePrice:23000,type:'simple',active:true,trackStock:true},
+    {id:'liq_jagger_15',name:'Jagger + 1.5lt',category:'Otros licores',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'liq_jagger',drinkSize:'1.5'},
+    {id:'liq_jagger_3',name:'Jagger + 3lt',category:'Otros licores',salePrice:27000,type:'promo',active:true,trackStock:true,baseProductId:'liq_jagger',drinkSize:'3'},
+    {id:'liq_absolut',name:'Vodka Absolut',category:'Otros licores',salePrice:23000,type:'simple',active:true,trackStock:true},
+    {id:'liq_absolut_15',name:'Vodka Absolut + 1.5lt',category:'Otros licores',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'liq_absolut',drinkSize:'1.5'},
+    {id:'liq_absolut_3',name:'Vodka Absolut + 3lt',category:'Otros licores',salePrice:27000,type:'promo',active:true,trackStock:true,baseProductId:'liq_absolut',drinkSize:'3'},
+    {id:'liq_bombay',name:'Gin Bombay',category:'Otros licores',salePrice:23000,type:'simple',active:true,trackStock:true},
+    {id:'liq_bombay_15',name:'Gin Bombay + 1.5lt',category:'Otros licores',salePrice:25000,type:'promo',active:true,trackStock:true,baseProductId:'liq_bombay',drinkSize:'1.5'},
+    {id:'liq_bombay_3',name:'Gin Bombay + 3lt',category:'Otros licores',salePrice:27000,type:'promo',active:true,trackStock:true,baseProductId:'liq_bombay',drinkSize:'3'},
+    {id:'cock_mistral_ice',name:'Mistral Ice',category:'Cócteles',salePrice:13000,type:'simple',active:true,trackStock:true},
+    {id:'cock_mistral_energy',name:'Mistral Energy',category:'Cócteles',salePrice:13000,type:'simple',active:true,trackStock:true},
+    {id:'cock_capel_ice',name:'Capel Ice',category:'Cócteles',salePrice:12000,type:'simple',active:true,trackStock:true},
+    {id:'cock_pisco_sour',name:'Pisco sour',category:'Cócteles',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'cock_mango_sour',name:'Mango sour',category:'Cócteles',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'cock_pina_colada',name:'Piña Colada',category:'Cócteles',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'cock_toffee',name:'Toffe Cream',category:'Cócteles',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'cock_mojito',name:'Mojito',category:'Cócteles',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'wine_gato',name:'Gato Dulce',category:'Vinos',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'wine_export',name:'Exportacion Merlot',category:'Vinos',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'wine_casillero',name:'Casillero del Diablo',category:'Vinos',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'wine_esp_moscato',name:'Espumante Moscato',category:'Vinos',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'wine_esp_brut',name:'Espumante Brut',category:'Vinos',salePrice:10000,type:'simple',active:true,trackStock:true},
+    {id:'b1',name:'Coca Cola 1.5lt',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'b2',name:'Coca Cero 1.5lt',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'b3',name:'Sprite 1.5lt',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'b4',name:'Sprite cero 1.5lt',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'b5',name:'Fanta',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'b6',name:'Tonica',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'b7',name:'Agua Mineral',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true},
+    {id:'b8',name:'Coca Cola 3lt',category:'Bebidas',salePrice:5000,type:'simple',active:true,trackStock:true,drinkSize:'3'},
+    {id:'b9',name:'Coca cero 3lt',category:'Bebidas',salePrice:5000,type:'simple',active:true,trackStock:true,drinkSize:'3'},
+    {id:'b10',name:'Sprite 3lt',category:'Bebidas',salePrice:5000,type:'simple',active:true,trackStock:true,drinkSize:'3'},
+    {id:'b11',name:'Mr Big',category:'Bebidas',salePrice:5000,type:'simple',active:true,trackStock:true,drinkSize:'3'},
+    {id:'b12',name:'Gatorade',category:'Bebidas',salePrice:3500,type:'simple',active:true,trackStock:true},
+    {id:'b13',name:'Jugo Piña',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'b14',name:'Jugo Durazno',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true,drinkSize:'1.5'},
+    {id:'rb1',name:'RedBull Normal',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true},
+    {id:'rb2',name:'RedBull Roja',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true},
+    {id:'rb3',name:'RedBull Amarilla',category:'Bebidas',salePrice:3000,type:'simple',active:true,trackStock:true},
+    {id:'e1',name:'X4 Vasos Plasticos',category:'Extras',salePrice:1000,type:'simple',active:true,trackStock:true},
+    {id:'e2',name:'Mani Salado',category:'Extras',salePrice:2500,type:'simple',active:true,trackStock:true},
+    {id:'e3',name:'Papas Tarro',category:'Extras',salePrice:4000,type:'simple',active:true,trackStock:true},
+    {id:'e4',name:'Condones',category:'Extras',salePrice:3000,type:'simple',active:true,trackStock:true},
+    {id:'e5',name:'Hielo',category:'Extras',salePrice:2000,type:'simple',active:true,trackStock:true},
+    {id:'e6',name:'Encendedor',category:'Extras',salePrice:1000,type:'simple',active:true,trackStock:true},
+    {id:'e7',name:'Tarjeta',category:'Extras',salePrice:1000,type:'simple',active:true,trackStock:false},
+    {id:'r_sin',name:'Reparto Sin copete',category:'Reparto',salePrice:2000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_plano',name:'Reparto Tihno Plano',category:'Reparto',salePrice:3000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_cerros',name:'Reparto Tihno Cerros',category:'Reparto',salePrice:5000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_collao',name:'Reparto Collao',category:'Reparto',salePrice:3000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_palomares',name:'Reparto Palomares',category:'Reparto',salePrice:3000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_nonguen',name:'Reparto Nonguen',category:'Reparto',salePrice:4000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_penco',name:'Reparto Penco',category:'Reparto',salePrice:5000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_sp',name:'Reparto San Pedro',category:'Reparto',salePrice:3000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_sp2',name:'Reparto San Pedro 2',category:'Reparto',salePrice:5000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_lomas',name:'Reparto Lomas Coloradas',category:'Reparto',salePrice:7000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_chiguayante',name:'Reparto Chiguayante',category:'Reparto',salePrice:7000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_interportuaria',name:'Reparto Interportuaria',category:'Reparto',salePrice:7000,type:'simple',active:true,trackStock:false,availableBranches:['conce']},
+    {id:'r_libre',name:'Reparto Libre',category:'Reparto',salePrice:0,type:'simple',active:true,trackStock:false,availableBranches:['conce','la','chi'],isVariablePrice:true}
+  ],
+  inventory:[
+    {branchId:'conce',productId:'p1',stock:12,cost:8200,min:3},{branchId:'conce',productId:'p2',stock:10,cost:8200,min:3},
+    {branchId:'conce',productId:'ws1',stock:5,cost:15000,min:2},{branchId:'conce',productId:'ws2',stock:5,cost:15000,min:2},
+    {branchId:'conce',productId:'ws3',stock:5,cost:19000,min:2},{branchId:'conce',productId:'ws4',stock:4,cost:36000,min:1},
+    {branchId:'conce',productId:'ol1',stock:6,cost:12000,min:2},{branchId:'conce',productId:'ol2',stock:6,cost:14000,min:2},{branchId:'conce',productId:'ol3',stock:4,cost:20000,min:1},
+    {branchId:'conce',productId:'b1',stock:16,cost:1500,min:3},{branchId:'conce',productId:'b2',stock:16,cost:1500,min:3},{branchId:'conce',productId:'b3',stock:14,cost:1500,min:3},
+    {branchId:'conce',productId:'b4',stock:10,cost:1500,min:3},{branchId:'conce',productId:'b5',stock:8,cost:1500,min:3},{branchId:'conce',productId:'b6',stock:8,cost:1500,min:3},
+    {branchId:'conce',productId:'b7',stock:8,cost:1500,min:3},{branchId:'conce',productId:'b8',stock:8,cost:1500,min:3},{branchId:'conce',productId:'b9',stock:10,cost:2500,min:3},
+    {branchId:'conce',productId:'b10',stock:10,cost:2500,min:3},{branchId:'conce',productId:'b11',stock:10,cost:2500,min:3},
+    {branchId:'conce',productId:'c1p',stock:12,cost:5000,min:3},{branchId:'conce',productId:'c2p',stock:12,cost:5500,min:3},{branchId:'conce',productId:'c3p',stock:12,cost:6500,min:3},{branchId:'conce',productId:'c4p',stock:12,cost:7000,min:3},
+    {branchId:'conce',productId:'e1',stock:10,cost:500,min:2},{branchId:'conce',productId:'e2',stock:10,cost:400,min:2},{branchId:'conce',productId:'e3',stock:10,cost:1200,min:2},{branchId:'conce',productId:'e4',stock:10,cost:1800,min:2},{branchId:'conce',productId:'e5',stock:20,cost:500,min:5},
+    {branchId:'la',productId:'p1',stock:8,cost:8600,min:3},{branchId:'la',productId:'b9',stock:6,cost:2600,min:3},{branchId:'la',productId:'e5',stock:5,cost:500,min:3}
+  ],
+  orders:[
+    {id:uid(),date:'10-03-2026',branchId:'conce',branchName:'Fonocopete Concepción',createdBy:'Operador Conce',courierId:'c1',courierName:'Nicolás López',time:'22:14',items:[{id:uid(),productId:'p4',name:'Mistral 1L + Coca Cola Original 3L + Hielo',category:'Piscos',qty:1,salePrice:20000,type:'promo',components:[{productId:'p1',qty:1},{productId:'b9',qty:1},{productId:'e5',qty:1}]}],subtotal:20000,transbankFee:1000,total:21000,paymentMode:'transbank',payments:{efectivo:0,transferencia:0,transbank:21000}},
+    {id:uid(),date:'11-03-2026',branchId:'conce',branchName:'Fonocopete Concepción',createdBy:'Operador Conce',courierId:'c2',courierName:'Leonardo',time:'23:05',items:[{id:uid(),productId:'c4p',name:'Pack 6 Heineken',category:'Cervezas',qty:1,salePrice:10000,type:'simple',components:[{productId:'c4p',qty:1}]}],subtotal:10000,transbankFee:0,total:10000,paymentMode:'efectivo',payments:{efectivo:10000,transferencia:0,transbank:0}},
+    {id:uid(),date:'12-03-2026',branchId:'conce',branchName:'Fonocopete Concepción',createdBy:'Operador Conce',courierId:'c1',courierName:'Nicolás López',time:'22:14',items:[{id:uid(),productId:'p4',name:'Mistral 1L + Coca Cola Original 3L + Hielo',category:'Piscos',qty:1,salePrice:20000,type:'promo',components:[{productId:'p1',qty:1},{productId:'b9',qty:1},{productId:'e5',qty:1}]},{id:uid(),productId:'c4p',name:'Pack 6 Heineken',category:'Cervezas',qty:1,salePrice:10000,type:'simple',components:[{productId:'c4p',qty:1}]}],subtotal:30000,transbankFee:1000,total:31000,paymentMode:'transbank',payments:{efectivo:0,transferencia:0,transbank:31000}}
+  ]
+};
+
+function uid(){return Math.random().toString(36).slice(2,10)}
+function clp(n){return new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n||0)}
+function nowTime(){return new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}
+function nowDateLocal(){return new Date().toLocaleDateString('es-CL')}
+function getUser(){return state.currentUser}
+function canEdit(){return state.currentUser && (state.currentUser.role==='dueno' || state.currentUser.role==='encargado')}
+function workingBranchId(){return state.currentUser.role==='dueno' ? (state.selectedOwnerBranchId || 'conce') : state.currentUser.branchId}
+function isAllBranches(){ return workingBranchId()==='all'; }
+function branch(){return isAllBranches() ? {id:'all',name:'Todas las sucursales',city:'General'} : state.branches.find(b=>b.id===workingBranchId())}
+function branchCouriers(){return isAllBranches() ? state.couriers.filter(c=>c.active) : state.couriers.filter(c=>c.branchId===workingBranchId() && c.active)}
+function inventoryRow(productId, branchId){return state.inventory.find(i=>i.branchId===branchId && i.productId===productId)}
+function branchOrders(){return isAllBranches() ? state.orders.slice() : state.orders.filter(o=>o.branchId===workingBranchId())}
+function ordersForSelectedDate(){return branchOrders().filter(o=>o.date===state.selectedHistoryDate)}
+function promoDrinkOptions(){
+  if(!state.pendingPromo) return [];
+  if(state.pendingPromo.specialProductId){
+    return [state.products.find(x=>x.id===state.pendingPromo.specialProductId)].filter(Boolean);
+  }
+  if(state.pendingPromo.drinkSize==='1.5'){
+    return state.products.filter(x=>x.active && x.type==='simple' && x.category==='Bebidas' && x.drinkSize==='1.5');
+  }
+  if(state.pendingPromo.drinkSize==='3'){
+    return state.products.filter(x=>x.active && x.type==='simple' && x.category==='Bebidas' && x.drinkSize==='3');
+  }
+  return [];
+}
+function promoRecipe(promoId, drinkId){
+  const promo = state.products.find(x=>x.id===promoId);
+  if(!promo) return [];
+  const components = [];
+  let baseId = promo.baseProductId || '';
+  if(!baseId){
+    const baseName = String(promo.name||'').split(' + ')[0].trim();
+    const baseProduct = state.products.find(x=>x.type==='simple' && x.name===baseName);
+    if(baseProduct) baseId = baseProduct.id;
+  }
+  if(baseId) components.push({productId:baseId, qty:1});
+  if(promo.specialProductId) components.push({productId:promo.specialProductId, qty:1});
+  else if(drinkId) components.push({productId:drinkId, qty:1});
+  const hieloProduct = state.products.find(x=>x.type==='simple' && String(x.name||'').trim().toLowerCase()==='hielo');
+  if(hieloProduct) components.push({productId:hieloProduct.id, qty:1});
+  return components;
+}
+
+function isProductAvailableForBranch(p, branchId){
+  if(!p) return false;
+  if(!p.availableBranches || !p.availableBranches.length) return true;
+  return p.availableBranches.includes(branchId);
+}
+function subtotal(){return state.cart.reduce((a,i)=>a+i.salePrice*i.qty,0)}
+function transbankFee(){if(state.paymentMode==='transbank') return state.cart.length?1000:0; if(state.paymentMode==='mixto' && Number(state.mixTb||0)>0) return state.cart.length?1000:0; return 0}
+function total(){return subtotal()+transbankFee()}
+function numManual(v){ return Number((v||'').toString().replace(/\D/g,'') || 0); }
+function numVal(v){ return Number((v||'').toString().replace(/\D/g,'') || 0); }
+function refreshMixedSummary(){
+  const ef = document.getElementById('mixEf');
+  const tr = document.getElementById('mixTr');
+  const tb = document.getElementById('mixTb');
+  if(ef) state.mixEf = String(ef.value).replace(/\D/g,'');
+  if(tr) state.mixTr = String(tr.value).replace(/\D/g,'');
+  if(tb) state.mixTb = String(tb.value).replace(/\D/g,'');
+  const feeEl = document.querySelector('[data-role="tb-fee"]');
+  const totalEl = document.querySelector('[data-role="total-order"]');
+  const warn = document.getElementById('mixWarn');
+  if(feeEl) feeEl.textContent = clp(transbankFee());
+  if(totalEl) totalEl.textContent = clp(total());
+  if(warn){
+    if(state.paymentMode!=='mixto'){ warn.textContent=''; }
+    else{
+      const sum = numVal(state.mixEf)+numVal(state.mixTr)+numVal(state.mixTb);
+      warn.textContent = sum!==total() ? 'La suma del pago mixto debe coincidir con el total.' : '';
+    }
+  }
+}
+function roleVisible(key){
+  if(key==='users' || key==='admin') return (state.currentUser.role==='dueno');
+  if(key==='mayor' || key==='capital' || key==='facturas') return (state.currentUser.role==='dueno' || state.currentUser.role==='encargado');
+  return true;
+}
+function allDates(){return [...new Set(branchOrders().map(o=>o.date))].sort((a,b)=>parseDMY(b)-parseDMY(a))}
+
+function syncHistoryDateToBranch(){
+  const dates = allDates();
+  if(!dates.length){
+    if(!state.selectedHistoryDate) state.selectedHistoryDate = state.activeDate;
+    return;
+  }
+  if(!state.selectedHistoryDate){
+    state.selectedHistoryDate = dates[0];
+  }
+}
+function syncCourierDateToBranch(){
+  const dates = [...new Set(branchOrders().map(o=>o.date))].sort((a,b)=>parseDMY(b)-parseDMY(a));
+  if(!dates.length){
+    if(!state.selectedCourierDate) state.selectedCourierDate = state.activeDate;
+    return;
+  }
+  if(!dates.includes(state.selectedCourierDate)){
+    state.selectedCourierDate = dates[0];
+  }
+}
+function syncCourierSelectionToBranch(){
+  const couriers = branchCouriers();
+  if(!couriers.length){
+    state.selectedCourierId = '';
+    return;
+  }
+  if(!couriers.find(c=>c.id===state.selectedCourierId)){
+    state.selectedCourierId = couriers[0].id;
+  }
+}
+
+function parseDMY(s){
+  const [d,m,y]=s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function fmtDMY(dt){
+  const d=String(dt.getDate()).padStart(2,'0');
+  const m=String(dt.getMonth()+1).padStart(2,'0');
+  const y=dt.getFullYear();
+  return `${d}-${m}-${y}`;
+}
+function weekDatesFromActive(){
+  const active=parseDMY(state.activeDate);
+  const day=(active.getDay()+6)%7; // lunes=0
+  const monday=new Date(active);
+  monday.setDate(active.getDate()-day);
+  const arr=[];
+  for(let i=0;i<7;i++){ const x=new Date(monday); x.setDate(monday.getDate()+i); arr.push(fmtDMY(x)); }
+  return arr;
+}
+function monthDatesFromActive(){
+  const active=parseDMY(state.activeDate);
+  const first=new Date(active.getFullYear(), active.getMonth(), 1);
+  const arr=[];
+  let d=new Date(first);
+  while(d.getMonth()===first.getMonth() && d<=active){ arr.push(fmtDMY(d)); d.setDate(d.getDate()+1); }
+  return arr;
+}
+function dashboardOrders(){
+  const orders=branchOrders();
+  if(state.dashboardPeriod==='dia') return orders.filter(o=>o.date===state.activeDate);
+  if(state.dashboardPeriod==='semana'){ const set=new Set(weekDatesFromActive()); return orders.filter(o=>set.has(o.date)); }
+  if(state.dashboardPeriod==='mes'){ const set=new Set(monthDatesFromActive()); return orders.filter(o=>set.has(o.date)); }
+  if(state.dashboardPeriod==='fecha'){
+    return orders.filter(o=>o.date===state.dashboardFrom);
+  }
+  if(state.dashboardPeriod==='rango'){
+    const from = parseDMY(state.dashboardFrom);
+    const to = parseDMY(state.dashboardTo);
+    return orders.filter(o=>{
+      const d = parseDMY(o.date);
+      return d >= from && d <= to;
+    });
+  }
+  return orders;
+}
+function applyStock(components, multiplier){(components||[]).forEach(c=>{let row=inventoryRow(c.productId,workingBranchId()); if(!row){row={branchId:workingBranchId(),productId:c.productId,stock:0,cost:0,min:0}; state.inventory.push(row)} row.stock=Math.max(0,row.stock + multiplier*c.qty)})}
+function periodSummary(orders){
+  const payments = orders.reduce((a,o)=>{a.ef+=o.payments.efectivo;a.tr+=o.payments.transferencia;a.tb+=o.payments.transbank;return a},{ef:0,tr:0,tb:0});
+  const sales = orders.reduce((a,o)=>a+Number(o.total||0),0);
+  const cost = orders.reduce((a,o)=>a+orderCost(o),0);
+  const profit = orders.reduce((a,o)=>a+orderProfit(o),0);
+  return {sales, cost, profit, orders: orders.length, payments};
+}
+function inventoryValue(branchId){
+  return state.inventory.filter(r=>r.branchId===branchId).reduce((a,r)=>a + Number(r.stock||0) * Number(r.cost||0), 0);
+}
+function turnoDraftKey(){ return `${workingBranchId()}|${state.activeDate}`; }
+function currentFuelExpense(){
+  const key = turnoDraftKey();
+  const raw = state.fuelExpenseDrafts && key in state.fuelExpenseDrafts ? state.fuelExpenseDrafts[key] : state.fuelExpense;
+  return Number((raw||'').toString().replace(/\D/g,'') || 0);
+}
+function currentCashCounted(){
+  const key = turnoDraftKey();
+  const raw = state.cashCountedDrafts && key in state.cashCountedDrafts ? state.cashCountedDrafts[key] : state.cashCounted;
+  return Number((raw||'').toString().replace(/\D/g,'') || 0);
+}
+function currentShiftFinancials(){
+  const todays = branchOrders().filter(o=>o.date===state.activeDate);
+  const summary = periodSummary(todays);
+  const fuel = currentFuelExpense();
+  const expectedCash = summary.payments.ef;
+  const countedCash = currentCashCounted();
+  const cashDiff = countedCash ? countedCash - expectedCash : 0;
+  const realProfit = summary.profit - fuel;
+  return {summary, fuel, expectedCash, countedCash, cashDiff, realProfit};
+}
+function refreshTurnoSummary(){
+  const fe = document.getElementById('fuelExpenseInput');
+  const cc = document.getElementById('cashCountedInput');
+  const key = turnoDraftKey();
+
+  if(fe){
+    const val = String(fe.value).replace(/\D/g,'');
+    state.fuelExpenseDrafts[key] = val;
+    state.fuelExpense = val;
+  }
+  if(cc){
+    const val = String(cc.value).replace(/\D/g,'');
+    state.cashCountedDrafts[key] = val;
+    state.cashCounted = val;
+  }
+  const {summary, fuel, expectedCash, countedCash, cashDiff, realProfit} = currentShiftFinancials();
+  const fuelEl = document.querySelector('[data-role="fuel-val"]');
+  const expEl = document.querySelector('[data-role="expected-cash"]');
+  const diffEl = document.querySelector('[data-role="cash-diff"]');
+  const profitEl = document.querySelector('[data-role="real-profit"]');
+  if(fuelEl) fuelEl.textContent = clp(fuel);
+  if(expEl) expEl.textContent = clp(expectedCash);
+  if(diffEl){
+    diffEl.textContent = clp(cashDiff);
+    diffEl.className = cashDiff<0 ? 'red' : (cashDiff>0 ? 'green' : '');
+  }
+  if(profitEl) profitEl.textContent = clp(realProfit);
+}
+function closeCurrentShift(){
+  const todays = branchOrders().filter(o=>o.date===state.activeDate);
+  const summary = periodSummary(todays);
+  const existingIndex = state.shiftClosures.findIndex(s=>s.branchId===workingBranchId() && s.date===state.activeDate);
+  const payload = {
+    id: uid(),
+    branchId: workingBranchId(),
+    branchName: branch().name,
+    date: state.activeDate,
+    shiftName: state.shiftName,
+    closedBy: state.currentUser.name,
+    closedAt: nowTime(),
+    sales: summary.sales,
+    cost: summary.cost,
+    profit: summary.profit,
+    fuelExpense: currentFuelExpense(),
+    realProfit: summary.profit - currentFuelExpense(),
+    expectedCash: summary.payments.ef,
+    countedCash: currentCashCounted(),
+    cashDifference: currentCashCounted() ? currentCashCounted() - summary.payments.ef : 0,
+    orders: summary.orders,
+    payments: summary.payments
+  };
+  if(existingIndex >= 0) state.shiftClosures[existingIndex] = payload;
+  else state.shiftClosures.push(payload);
+  state.turnOpen = false;
+}
+function orderCost(order){
+  return (order.items||[]).reduce((sum,item)=>{
+    const comps = item.components && item.components.length
+      ? item.components
+      : [{productId:item.productId, qty:1}];
+    const itemCost = comps.reduce((acc,c)=>{
+      // Usar costo guardado al momento de la venta si existe (evita retroactividad)
+      const cost = c.costAtSale !== undefined
+        ? Number(c.costAtSale||0)
+        : Number((inventoryRow(c.productId, order.branchId)||{cost:0}).cost||0);
+      return acc + cost * Number(c.qty||0);
+    },0);
+    return sum + itemCost * Number(item.qty||1);
+  },0);
+}
+function orderProfit(order){
+  return Number(order.total||0) - orderCost(order);
+}
+
+function initLogin(){
+  const sel = document.getElementById('loginUser');
+  if(sel){
+    sel.innerHTML = state.users.map(u=>`<option value="${u.id}">${u.username} · ${u.role}</option>`).join('');
+    if(state.users.length) sel.value = String(state.users[0].id);
+  }
+  const pass = document.getElementById('loginPass');
+  if(pass){
+    pass.value = '';
+    pass.onkeydown = function(e){
+      if(e.key === 'Enter') login();
+    };
+  }
+}
+
+function login(){
+  const userId = document.getElementById('loginUser').value;
+  const pass = document.getElementById('loginPass').value;
+  const user = state.users.find(u=>String(u.id)===String(userId));
+  if(!user){
+    alert('Selecciona un usuario');
+    return;
+  }
+
+  let defaultPass = '';
+  if(user.role === 'dueno') defaultPass = '2812';
+  else if(user.role === 'encargado') defaultPass = '1234';
+  else defaultPass = '1111';
+
+  const savedPass = String(user.password || defaultPass);
+  if(String(pass).trim() !== savedPass){
+    alert('Clave incorrecta');
+    return;
+  }
+
+  state.currentUser = user;
+  state.selectedHistoryDate = state.activeDate; state.selectedCourierDate = state.activeDate; syncHistoryDateToBranch(); syncCourierDateToBranch(); syncCourierSelectionToBranch(); const k=turnoDraftKey(); state.fuelExpense = state.fuelExpenseDrafts[k] || ''; state.cashCounted = state.cashCountedDrafts[k] || '';
+  document.getElementById('loginRoot').classList.add('hidden');
+  document.getElementById('appRoot').classList.remove('hidden');
+  render();
+}
+
+function logout(){
+  state.currentUser = null;
+  state.view = 'login';
+  const app = document.getElementById('appRoot');
+  const login = document.getElementById('loginRoot');
+  if(app) app.style.display = 'none';
+  if(login) login.style.display = 'block';
+  const pass = document.getElementById('loginPass');
+  if(pass) pass.value = '';
+  if(typeof initLogin==='function') initLogin();
+}
+
+
+function shiftDate(dateStr, delta){
+  const [d,m,y] = String(dateStr||state.activeDate||'01-01-2026').split('-').map(Number);
+  const dt = new Date(y, (m||1)-1, d||1);
+  dt.setDate(dt.getDate()+delta);
+  const dd = String(dt.getDate()).padStart(2,'0');
+  const mm = String(dt.getMonth()+1).padStart(2,'0');
+  const yy = dt.getFullYear();
+  return `${dd}-${mm}-${yy}`;
+}
+function shiftMonthKey(monthKey, delta){
+  const parts = String(monthKey||capitalMonthKey()).split('-');
+  let m = Number(parts[0]||1);
+  let y = Number(parts[1]||2026);
+  m += delta;
+  while(m<1){ m+=12; y-=1; }
+  while(m>12){ m-=12; y+=1; }
+  return `${String(m).padStart(2,'0')}-${y}`;
+}
+function currentFacturasMonthKey(){
+  if(!state.facturasMonthKey) state.facturasMonthKey = capitalMonthKey();
+  return state.facturasMonthKey;
+}
+function ownerMonthKey(){
+  if(!state.ownerViewMonthKey) state.ownerViewMonthKey = capitalMonthKey();
+  return state.ownerViewMonthKey;
+}
+function monthInvoicesForBranch(branchId, monthKey){
+  return state.invoices.filter(x=>{
+    if(x.branchId!==branchId) return false;
+    const parts = String(x.date||'').split('-');
+    if(parts.length!==3) return false;
+    return `${parts[1]}-${parts[2]}` === monthKey;
+  });
+}
+function shiftClosuresForBranchMonth(branchId, monthKey){
+  return state.shiftClosures.filter(s=>{
+    if(s.branchId!==branchId) return false;
+    const parts = String(s.date||'').split('-');
+    if(parts.length!==3) return false;
+    return `${parts[1]}-${parts[2]}` === monthKey;
+  });
+}
+function branchOrdersByDate(branchId, dateStr){
+  return state.orders.filter(o=>o.branchId===branchId && o.date===dateStr);
+}
+function monthOrdersForBranch(branchId, monthKey){
+  return state.orders.filter(o=>{
+    if(o.branchId!==branchId) return false;
+    const parts = String(o.date||'').split('-');
+    if(parts.length!==3) return false;
+    return `${parts[1]}-${parts[2]}` === monthKey;
+  });
+}
+function renderDateNav(label, prevFn, value, nextFn){
+  return `<div class="row" style="align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    <button class="btn btn-secondary" onclick="${prevFn}">← Atrás</button>
+    <div class="card" style="padding:10px 14px;background:#f8fafc"><strong>${label}:</strong> ${value}</div>
+    <button class="btn btn-secondary" onclick="${nextFn}">Adelante →</button>
+  </div>`;
+}
+function prevLibroDate(){ state.selectedHistoryDate = shiftDate(state.selectedHistoryDate,-1); renderLibro(); }
+function nextLibroDate(){ state.selectedHistoryDate = shiftDate(state.selectedHistoryDate,1); renderLibro(); }
+function prevRepartidoresDate(){ state.selectedCourierDate = shiftDate(state.selectedCourierDate,-1); renderRepartidores(); }
+function nextRepartidoresDate(){ state.selectedCourierDate = shiftDate(state.selectedCourierDate,1); renderRepartidores(); }
+function prevMayorMonth(){ state.mayorMonthKey = shiftMonthKey(currentMayorMonthKey(),-1); renderMayor(); }
+function nextMayorMonth(){ state.mayorMonthKey = shiftMonthKey(currentMayorMonthKey(),1); renderMayor(); }
+function prevCapitalMonth(){ state.activeDate = shiftDate(state.activeDate,-30); renderCapital(); }
+function nextCapitalMonth(){ state.activeDate = shiftDate(state.activeDate,30); renderCapital(); }
+function prevFacturasMonth(){ state.facturasMonthKey = shiftMonthKey(currentFacturasMonthKey(),-1); renderFacturas(); }
+function nextFacturasMonth(){ state.facturasMonthKey = shiftMonthKey(currentFacturasMonthKey(),1); renderFacturas(); }
+function prevOwnerMonth(){ state.ownerViewMonthKey = shiftMonthKey(ownerMonthKey(),-1); renderOwnerView(); }
+function nextOwnerMonth(){ state.ownerViewMonthKey = shiftMonthKey(ownerMonthKey(),1); renderOwnerView(); }
+function render(){
+  document.getElementById('sidebarUser').textContent=`${state.currentUser.name} · ${state.currentUser.role}`;
+  document.getElementById('topBranch').innerHTML = state.currentUser.role==='dueno'
+    ? `${branch().name} · Fecha activa ${state.activeDate}<div style="margin-top:8px;max-width:320px"><label>Sucursal activa</label><select id="ownerBranchSelect" class="input">${state.branches.map(b=>`<option value="${b.id}" ${state.selectedOwnerBranchId===b.id?'selected':''}>${b.name}</option>`).join('')}<option value="all" ${state.selectedOwnerBranchId==='all'?'selected':''}>Todas</option></select></div>`
+    : `${branch().name} · Fecha activa ${state.activeDate}`;
+  const menu=document.getElementById('menu'); menu.innerHTML='';
+  [['dashboard','Dashboard'],['venta','Venta rápida'],['libro','Libro diario'],['mayor','Libro mayor'],['capital','Control capital'],['facturas','Facturas entrantes'],['repartidores','Repartidores'],['inventario','Inventario'],['productos','Productos'],['usuarios','Usuarios'],['turno','Turno'],['admin','Vista dueño']].forEach(([key,label])=>{if(!roleVisible(key)) return; const b=document.createElement('button'); b.textContent=label; b.className=state.view===key?'active':''; b.onclick=()=>{state.view=key; render()}; menu.appendChild(b)});
+  const todays=branchOrders().filter(o=>o.date===state.activeDate);
+  document.getElementById('kpiSales').textContent=clp(todays.reduce((a,x)=>a+x.total,0));
+  document.getElementById('kpiOrders').textContent=todays.length;
+  document.getElementById('kpiDate').textContent=state.activeDate;
+  document.getElementById('kpiTurn').textContent=state.turnOpen?'Abierto':'Cerrado';
+  document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
+  document.getElementById('view-'+state.view).classList.remove('hidden');
+  if(state.view==='dashboard') renderDashboard();
+  if(state.view==='venta') renderVenta();
+  if(state.view==='libro') renderLibro();
+  if(state.view==='mayor') renderMayor();
+  if(state.view==='capital') renderCapital();
+  if(state.view==='facturas') renderFacturas();
+  if(state.view==='repartidores') renderRepartidores();
+  if(state.view==='inventario') renderInventario();
+  if(state.view==='productos') renderProductos();
+  if(state.view==='usuarios') renderUsuarios();
+  if(state.view==='turno') renderTurno();
+  if(state.view==='admin') renderAdmin();
+
+  const ownerSel = document.getElementById('ownerBranchSelect');
+  if(ownerSel){
+    ownerSel.onchange = e=>{ state.selectedOwnerBranchId = e.target.value; syncHistoryDateToBranch(); syncCourierDateToBranch(); syncCourierSelectionToBranch(); const k=turnoDraftKey(); state.fuelExpense = state.fuelExpenseDrafts[k] || ''; state.cashCounted = state.cashCountedDrafts[k] || ''; render(); };
+  }
+}
+
+function lowStockProducts(){
+  return state.products
+    .filter(p=>p.active && p.type==='simple')
+    .map(p=>{
+      const row = inventoryRow(p.id, workingBranchId()) || {stock:0,min:0,cost:0};
+      return {name:p.name, stock:Number(row.stock||0), min:Number(row.min||0)};
+    })
+    .filter(x=>x.min > 0 && x.stock <= x.min)
+    .sort((a,b)=>a.stock-b.stock);
+}
+
+function renderDashboard(){
+  const scoped = dashboardOrders();
+  const pt=scoped.reduce((a,o)=>{a.ef+=o.payments.efectivo;a.tr+=o.payments.transferencia;a.tb+=o.payments.transbank;return a},{ef:0,tr:0,tb:0});
+  const totalSales = scoped.reduce((a,x)=>a+x.total,0);
+  const totalCost = scoped.reduce((a,x)=>a+orderCost(x),0);
+  const totalProfit = scoped.reduce((a,x)=>a+orderProfit(x),0);
+  const totalOrders = scoped.length;
+  const inventoryTotal = inventoryValue(workingBranchId());
+  const expectedCash = pt.ef;
+  const lowStock = canEdit() ? lowStockProducts() : [];
+  let periodLabel = `Día ${state.activeDate}`;
+  if(state.dashboardPeriod==='semana') periodLabel = `Últimos 7 días desde ${state.activeDate}`;
+  if(state.dashboardPeriod==='mes') periodLabel = `Mes de ${state.activeDate.slice(3)}`;
+  if(state.dashboardPeriod==='fecha') periodLabel = `Fecha específica: ${state.dashboardFrom}`;
+  if(state.dashboardPeriod==='rango') periodLabel = `Rango: ${state.dashboardFrom} a ${state.dashboardTo}`;
+  document.getElementById('view-dashboard').innerHTML=`${canEdit() && lowStock.length ? `<div class="card" style="margin-bottom:14px;border:2px solid #ef4444"><h3>⚠ Stock crítico</h3><div class="list">${lowStock.map(x=>`<div class="item between"><span>${x.name}</span><strong class="red">${x.stock} / mín ${x.min}</strong></div>`).join('')}</div></div>` : ''}<div class="card" style="margin-bottom:14px">
+    <h3>Filtro de análisis</h3>
+    <div class="row">
+      <button class="btn ${state.dashboardPeriod==='dia'?'btn-primary':'btn-secondary'}" onclick="setDashboardPeriod('dia')">Día</button>
+      <button class="btn ${state.dashboardPeriod==='semana'?'btn-primary':'btn-secondary'}" onclick="setDashboardPeriod('semana')">Últimos 7 días</button>
+      <button class="btn ${state.dashboardPeriod==='mes'?'btn-primary':'btn-secondary'}" onclick="setDashboardPeriod('mes')">Mes</button>
+      <button class="btn ${state.dashboardPeriod==='fecha'?'btn-primary':'btn-secondary'}" onclick="setDashboardPeriod('fecha')">Fecha específica</button>
+      <button class="btn ${state.dashboardPeriod==='rango'?'btn-primary':'btn-secondary'}" onclick="setDashboardPeriod('rango')">De fecha a fecha</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      ${(state.dashboardPeriod==='fecha' || state.dashboardPeriod==='rango') ? `<div><label>Desde</label><input id="dashFrom" class="input" value="${state.dashboardFrom}" placeholder="dd-mm-aaaa"></div>` : ``}
+      ${state.dashboardPeriod==='rango' ? `<div><label>Hasta</label><input id="dashTo" class="input" value="${state.dashboardTo}" placeholder="dd-mm-aaaa"></div>` : ``}
+      ${(state.dashboardPeriod==='fecha' || state.dashboardPeriod==='rango') ? `<div style="align-self:end"><button class="btn btn-primary" onclick="applyDashboardDates()">Aplicar</button></div>` : ``}
+    </div>
+    <div class="muted small" style="margin-top:8px">${periodLabel}</div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Métodos de pago</h3>
+      <div class="grid3">
+        <div class="card"><div class="muted">Efectivo</div><div class="stat" style="font-size:22px">${clp(pt.ef)}</div></div>
+        <div class="card"><div class="muted">Transferencia</div><div class="stat" style="font-size:22px">${clp(pt.tr)}</div></div>
+        <div class="card"><div class="muted">Transbank</div><div class="stat" style="font-size:22px">${clp(pt.tb)}</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Resumen del período</h3>
+      <div class="item between"><span>Ventas</span><strong>${clp(totalSales)}</strong></div>
+      <div class="item between"><span>Pedidos</span><strong>${totalOrders}</strong></div>
+      ${state.currentUser.role!=='operador' ? `<div class="item between"><span>Costo total</span><strong>${clp(totalCost)}</strong></div>` : ''}
+      ${state.currentUser.role!=='operador' ? `<div class="item between"><span>Ganancia total</span><strong>${clp(totalProfit)}</strong></div>` : ''}
+      ${canEdit() ? `<div class="item between"><span>Valor inventario</span><strong>${clp(inventoryTotal)}</strong></div><div class="item between"><span>Efectivo que debe entregar el repartidor</span><strong>${clp(expectedCash)}</strong></div>` : ``}
+    </div>
+  </div>`;
+}
+function renderVenta(){
+  const lastBox = document.getElementById('lastOrderBox');
+  if(lastBox && state.lastOrder){
+    lastBox.innerHTML = `<strong>Último pedido:</strong> ${state.lastOrder.name} - ${clp(state.lastOrder.price)}`;
+  }
+  if(isAllBranches()){
+    document.getElementById('view-venta').innerHTML = `<div class="card"><h3>Venta rápida</h3><div class="muted">Para esta sección debes elegir una sucursal específica arriba. En “Todas” solo puedes revisar paneles consolidados.</div></div>`;
+    return;
+  }
+
+  const list=state.products.filter(p=>p.active && p.category===state.category && isProductAvailableForBranch(p, workingBranchId()) && p.name.toLowerCase().includes(state.query.toLowerCase()));
+  const couriers=branchCouriers();
+  syncCourierSelectionToBranch();
+
+  if(state.pendingPromo){
+    const drinkOptions = promoDrinkOptions();
+    document.getElementById('view-venta').innerHTML = `
+      <div class="card">
+        <div class="between" style="margin-bottom:10px;gap:10px;align-items:center">
+          <div>
+            <h3 style="margin:0 0 6px 0">Selecciona la bebida</h3>
+            <div class="muted small">${state.pendingPromo.name} · incluye hielo automático</div>
+          </div>
+          <button class="btn btn-secondary" onclick="cancelPromoSelection()">Volver</button>
+        </div>
+        ${drinkOptions.length ? `
+          <div class="grid3">
+            ${drinkOptions.map(d=>`<div class="prod" style="cursor:pointer" onclick="selectPromoDrinkAndAdd('${d.id}')"><div><div style="font-weight:700;line-height:1.25">${d.name}</div><div style="margin-top:8px"><span class="badge">Bebida</span></div></div><div class="stat orange" style="font-size:18px">Elegir</div></div>`).join('')}
+          </div>
+        ` : `<div class="muted">No hay bebidas válidas para esta promo.</div>`}
+      </div>`;
+    return;
+  }
+
+  document.getElementById('view-venta').innerHTML=`<div class="grid2">
+    <div>
+      <div class="card">
+        <div class="row">
+          <input id="searchBox" class="input" placeholder="Buscar producto o promo" value="${state.query}" style="flex:1">
+          <div class="card" style="padding:10px 12px;background:#f8fafc">Toca productos para armar el pedido</div>
+        </div>
+      </div>
+
+      <div class="tabs">${state.categories.map(c=>`<button class="tab ${state.category===c?'active':''}" onclick="setCategory('${c}')">${c}</button>`).join('')}</div>
+
+      <div class="grid3">
+        ${list.map(p=>`<div class="prod" style="cursor:pointer" onclick="addProductToCart('${p.id}')"><div><div style="font-weight:700;line-height:1.25">${p.name}</div><div style="margin-top:8px">${p.type==='promo'?'<span class="badge">Promo</span><span class="badge">Selecciona bebida</span>':'<span class="badge">Simple</span>'}</div></div><div class="stat orange" style="font-size:22px">${clp(p.salePrice)}</div></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="position:sticky;top:12px">
+      <h3>Pedido actual</h3>
+      ${!state.cart.length?`<div class="muted">Sin productos aún.</div>`:state.cart.map(i=>{
+        const isPromo = i.type==='promo';
+        // Solo mostrar cambiar bebida si la promo tiene drinkSize (no specialProductId)
+        const promoProduct = isPromo ? state.products.find(p=>p.id===i.productId) : null;
+        const canChangeDrink = promoProduct && promoProduct.drinkSize && !promoProduct.specialProductId;
+        return `<div class="item">
+          <div class="between">
+            <div>
+              <div style="font-weight:700">${i.name}</div>
+              <div class="muted small">${clp(i.salePrice)} c/u</div>
+            </div>
+            <button class="btn btn-secondary" onclick="removeItem('${i.id}')">Eliminar</button>
+          </div>
+          ${canChangeDrink ? `<div style="margin-top:6px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 10px" onclick="changeDrinkInCart('${i.id}')">🔄 Cambiar bebida</button></div>` : ''}
+          <div class="between" style="margin-top:8px">
+            <div class="row">
+              <button class="btn btn-secondary" onclick="changeQty('${i.id}',-1)">-</button>
+              <strong>${i.qty}</strong>
+              <button class="btn btn-secondary" onclick="changeQty('${i.id}',1)">+</button>
+            </div>
+            <strong>${clp(i.qty*i.salePrice)}</strong>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="item between"><span class="muted">Subtotal</span><strong>${clp(subtotal())}</strong></div>
+      <div class="item">
+        <h4>Cierre del pedido</h4>
+        <select id="paySelect" class="input" style="margin-bottom:10px">
+          <option value="efectivo" ${state.paymentMode==='efectivo'?'selected':''}>Efectivo</option>
+          <option value="transferencia" ${state.paymentMode==='transferencia'?'selected':''}>Transferencia</option>
+          <option value="transbank" ${state.paymentMode==='transbank'?'selected':''}>Transbank</option>
+          <option value="mixto" ${state.paymentMode==='mixto'?'selected':''}>Mixto</option>
+        </select>
+        <div id="mixBox" class="${state.paymentMode==='mixto'?'':'hidden'}">
+          <div class="grid3">
+            <div><label>Efectivo</label><input id="mixEf" class="input" type="text" inputmode="numeric" value="${state.mixEf||''}" placeholder="Ej: 2000"></div>
+            <div><label>Transferencia</label><input id="mixTr" class="input" type="text" inputmode="numeric" value="${state.mixTr||''}" placeholder="Ej: 5000"></div>
+            <div><label>Transbank</label><input id="mixTb" class="input" type="text" inputmode="numeric" value="${state.mixTb||''}" placeholder="Ej: 10000"></div>
+          </div>
+        </div>
+        <select id="courierInline" class="input" style="margin-top:10px">${couriers.map(c=>`<option value="${c.id}" ${state.selectedCourierId===c.id?'selected':''}>${c.name}</option>`).join('')}</select>
+        <div class="between" style="margin-top:10px"><span class="muted">Cargo Transbank</span><strong data-role="tb-fee">${clp(transbankFee())}</strong></div>
+        <div class="between" style="margin-top:6px"><span>Total</span><strong data-role="total-order">${clp(total())}</strong></div>
+        <div id="mixWarn" class="red small" style="margin-top:6px"></div>
+      </div>
+      <div class="row"><button class="btn btn-secondary" onclick="cancelOrder()">Cancelar pedido</button><button class="btn btn-primary" style="flex:1" ${(!state.cart.length||!state.turnOpen)?'disabled':''} onclick="saveOrder()">Guardar pedido</button></div>
+    </div>
+  </div>`;
+
+  const search = document.getElementById('searchBox');
+  if(search) search.oninput=e=>{state.query=e.target.value; renderVenta()};
+  document.getElementById('paySelect').onchange=e=>{state.paymentMode=e.target.value; renderVenta()};
+  document.getElementById('courierInline').onchange=e=>{state.selectedCourierId=e.target.value};
+
+  const ef=document.getElementById('mixEf'), tr=document.getElementById('mixTr'), tb=document.getElementById('mixTb');
+  [ef,tr,tb].forEach(el=>{
+    if(!el) return;
+    el.oninput=()=>{
+      state.mixEf = ef ? Number(String(ef.value||'').replace(/\D/g,'')) : 0;
+      state.mixTr = tr ? Number(String(tr.value||'').replace(/\D/g,'')) : 0;
+      state.mixTb = tb ? Number(String(tb.value||'').replace(/\D/g,'')) : 0;
+      const warn=document.getElementById('mixWarn');
+      const totalNow=total();
+      const sum=Number(state.mixEf||0)+Number(state.mixTr||0)+Number(state.mixTb||0);
+      const feeEl=document.querySelector('[data-role="tb-fee"]');
+      const totalEl=document.querySelector('[data-role="total-order"]');
+      if(feeEl) feeEl.textContent=clp(transbankFee());
+      if(totalEl) totalEl.textContent=clp(totalNow);
+      if(warn) warn.textContent=sum===totalNow?'':`La suma va en ${clp(sum)} y el total es ${clp(totalNow)}`;
+    };
+  });
+}function setLibroCourierFilter(id){ state.libroCourierFilter = id; renderLibro(); }
+
+function renderLibro(){
+  syncHistoryDateToBranch();
+  const dates = allDates();
+  const allDayOrders = ordersForSelectedDate();
+
+  // Filtro por repartidor
+  if(!state.libroCourierFilter) state.libroCourierFilter = 'todos';
+  const orders = state.libroCourierFilter === 'todos'
+    ? allDayOrders
+    : allDayOrders.filter(o => o.courierId === state.libroCourierFilter);
+
+  const totalDia     = allDayOrders.reduce((a,x)=>a+x.total,0);
+  const totalFiltro  = orders.reduce((a,x)=>a+x.total,0);
+
+  // Productos vendidos según filtro activo
+  const soldMap = {};
+  orders.forEach(o=>{
+    (o.items||[]).forEach(i=>{
+      soldMap[i.name] = (soldMap[i.name]||0) + Number(i.qty||0);
+    });
+  });
+  const soldList = Object.entries(soldMap).sort((a,b)=>b[1]-a[1]);
+
+  // Repartidores que tienen pedidos ese día
+  const couriersOfDay = branchCouriers().filter(c => allDayOrders.some(o=>o.courierId===c.id));
+
+  // Tabs de repartidor
+  const filterTabs = `
+    <div class="tabs" style="margin-bottom:12px;flex-wrap:wrap">
+      <button class="tab ${state.libroCourierFilter==='todos'?'active':''}" onclick="setLibroCourierFilter('todos')">Todos</button>
+      ${couriersOfDay.map(c=>`<button class="tab ${state.libroCourierFilter===c.id?'active':''}" onclick="setLibroCourierFilter('${c.id}')">${c.name}</button>`).join('')}
+    </div>`;
+
+  const resumenFiltro = state.libroCourierFilter !== 'todos'
+    ? `<div class="muted" style="margin-bottom:12px">Pedidos de <strong>${(branchCouriers().find(c=>c.id===state.libroCourierFilter)||{}).name||''}</strong>: <strong>${orders.length}</strong> · Total: <strong>${clp(totalFiltro)}</strong></div>`
+    : `<div class="muted" style="margin-bottom:12px">Total del día: <strong>${clp(totalDia)}</strong> · ${allDayOrders.length} pedidos</div>`;
+
+  document.getElementById('view-libro').innerHTML=`
+  ${renderDateNav('Fecha libro diario',"prevLibroDate()", state.selectedHistoryDate, "nextLibroDate()")}
+  <div class="grid2">
+    <div class="card">
+      <h3>Libro de ventas</h3>
+      <div class="row" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="changeLibroDate(-1)">← Día anterior</button>
+        <input id="libroDateInput" class="input" style="max-width:160px" value="${state.selectedHistoryDate}" placeholder="dd-mm-aaaa">
+        <button class="btn btn-primary" onclick="applyLibroDate()">Ir a fecha</button>
+        <button class="btn btn-secondary" onclick="changeLibroDate(1)">Día siguiente →</button>
+      </div>
+      <div class="muted" style="margin-bottom:8px">Fecha seleccionada: <strong>${state.selectedHistoryDate}</strong></div>
+      ${filterTabs}
+      ${resumenFiltro}
+      <div class="list">${orders.length
+        ? orders.map(o=>`
+          <div class="table-row">
+            <div>
+              <div style="font-weight:700">${o.time}</div>
+              <div class="muted small">${o.date}</div>
+              ${o.createdBy ? `<div class="muted small" style="font-size:11px">por ${o.createdBy}</div>` : ''}
+            </div>
+            <div class="hide-mobile muted">${o.courierName}</div>
+            <div style="font-weight:700">${o.items.map(i=>`${i.qty}x ${i.name}`).join(' · ')}</div>
+            <div class="hide-mobile muted">${o.paymentMode}</div>
+            <div style="font-weight:700">${clp(o.total)}</div>
+            <div class="row" style="gap:6px">
+              <button class="btn btn-secondary" onclick="openEditOrder('${o.id}')">Editar</button>
+              <button class="btn btn-danger" onclick="deleteSale('${o.id}')">Borrar</button>
+            </div>
+          </div>`).join('')
+        : '<div class="muted">No hay pedidos en esta fecha.</div>'}
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:14px">
+        <h3>Productos vendidos del día</h3>
+        <div class="list">${soldList.length ? soldList.map(x=>`<div class="item between"><span>${x[0]}</span><strong>${x[1]}</strong></div>`).join('') : '<div class="muted">Sin productos vendidos en esta fecha.</div>'}</div>
+      </div>
+      <div class="card">
+        <h3>Historial por fecha</h3>
+        <div class="list">${dates.map(d=>`<div class="item between"><div><div style="font-weight:700">${d}</div><div class="muted small">${branchOrders().filter(o=>o.date===d).length} pedidos</div></div><button class="btn ${state.selectedHistoryDate===d?'btn-primary':'btn-secondary'}" onclick="selectHistoryDate('${d}')">Ver</button></div>`).join('')}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+
+
+function currentMayorMonthKey(){
+  return state.mayorMonthKey || capitalMonthKey();
+}
+function monthNameFromKey(key){
+  const [mm,yyyy] = String(key||'').split('-');
+  const names = {'01':'Enero','02':'Febrero','03':'Marzo','04':'Abril','05':'Mayo','06':'Junio','07':'Julio','08':'Agosto','09':'Septiembre','10':'Octubre','11':'Noviembre','12':'Diciembre'};
+  return `${names[mm]||mm} ${yyyy||''}`.trim();
+}
+function availableMonthKeys(){
+  const set = new Set();
+  branchOrders().forEach(o=>{
+    const parts = String(o.date||'').split('-');
+    if(parts.length===3) set.add(`${parts[1]}-${parts[2]}`);
+  });
+  if(state.activeDate){
+    const parts = String(state.activeDate).split('-');
+    if(parts.length===3) set.add(`${parts[1]}-${parts[2]}`);
+  }
+  return Array.from(set).sort((a,b)=>{
+    const [ma,ya]=a.split('-').map(Number);
+    const [mb,yb]=b.split('-').map(Number);
+    return (yb-ya) || (mb-ma);
+  });
+}
+function groupedDailyRows(monthKey){
+  const map = {};
+  branchOrders().forEach(o=>{
+    const parts = String(o.date||'').split('-');
+    if(parts.length!==3) return;
+    if(`${parts[1]}-${parts[2]}` !== monthKey) return;
+    if(!map[o.date]) map[o.date] = {date:o.date, sales:0, cost:0, gasto:0, ganancia:0, orders:0};
+    map[o.date].sales += Number(o.total||0);
+    map[o.date].cost += orderCost(o);
+    map[o.date].ganancia += orderProfit(o);
+    map[o.date].orders += 1;
+  });
+
+  state.shiftClosures
+    .filter(s=>s.branchId===workingBranchId())
+    .forEach(s=>{
+      const parts = String(s.date||'').split('-');
+      if(parts.length!==3) return;
+      if(`${parts[1]}-${parts[2]}` !== monthKey) return;
+      if(!map[s.date]) map[s.date] = {date:s.date, sales:0, cost:0, gasto:0, ganancia:0, orders:0};
+      map[s.date].gasto = Number(s.fuelExpense||0);
+      map[s.date].ganancia = map[s.date].sales - map[s.date].cost - map[s.date].gasto;
+    });
+
+  return Object.values(map).sort((a,b)=>{
+    const [da,ma,ya]=a.date.split('-').map(Number);
+    const [db,mb,yb]=b.date.split('-').map(Number);
+    return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
+  });
+}
+function changeMayorMonth(){
+  const sel = document.getElementById('mayorMonthKey');
+  if(!sel) return;
+  state.mayorMonthKey = sel.value;
+  renderMayor();
+}
+function renderMayor(){
+  const monthKey = currentMayorMonthKey();
+  const rows = groupedDailyRows(monthKey);
+  const monthOptions = availableMonthKeys().length ? availableMonthKeys() : [monthKey];
+  const totalVentas = rows.reduce((a,x)=>a+x.sales,0);
+  const totalCosto = rows.reduce((a,x)=>a+x.cost,0);
+  const totalGasto = rows.reduce((a,x)=>a+x.gasto,0);
+  const totalGanancia = rows.reduce((a,x)=>a+x.ganancia,0);
+
+  const iva = numManual(state.mayorManualIva);
+  const sueldos1 = numManual(state.mayorManualSueldos1);
+  const sueldos2 = numManual(state.mayorManualSueldos2);
+  const relativos = numManual(state.mayorManualRelativos);
+  const otros = numManual(state.mayorManualOtros);
+  const descuentos = iva + sueldos1 + sueldos2 + relativos + otros;
+  const neto = totalGanancia - descuentos;
+
+  document.getElementById('view-mayor').innerHTML = `
+    <div class="card">
+      <div class='between' style='align-items:center;margin-bottom:10px'><h3 style='margin:0'>Libro mayor mensual</h3><button class='btn btn-primary' onclick='exportLibroMayorCSV()'>Exportar Excel</button></div>
+      ${renderDateNav('Mes libro mayor',"prevMayorMonth()", monthNameFromKey(monthKey), "nextMayorMonth()")}
+      <div class="row" style="margin-bottom:10px">
+        <div>
+          <label>Mes</label>
+          <select id="mayorMonthKey" class="input" onchange="changeMayorMonth()">
+            ${monthOptions.map(k=>`<option value="${k}" ${k===monthKey?'selected':''}>${monthNameFromKey(k)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="muted" style="margin-bottom:10px">Mes activo: <strong>${monthNameFromKey(monthKey)}</strong> · Sucursal: <strong>${branch().name}</strong></div>
+      <div style="overflow:auto">
+        <table style="width:100%; border-collapse:collapse; background:#fff; min-width:900px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb">Fecha</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Venta</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Costo</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Gasto</th>
+              ${state.currentUser.role!=='operador' ? `<th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Ganancia</th>` : ``}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length ? rows.map(r=>`
+              <tr>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;font-weight:700">${r.date}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(r.sales)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(r.cost)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(r.gasto)}</td>
+                ${state.currentUser.role!=='operador' ? `<td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(r.ganancia)}</td>` : ``}
+              </tr>`).join('') : `<tr><td colspan="5" style="padding:16px" class="muted">No hay ventas registradas en este mes.</td></tr>`}
+            <tr>
+              <td style="padding:10px;border-top:2px solid #111827;font-weight:800">TOTALES</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(totalVentas)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(totalCosto)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(totalGasto)}</td>
+              ${state.currentUser.role!=='operador' ? `<td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(totalGanancia)}</td>` : ``}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid2" style="margin-top:14px">
+        ${state.currentUser.role!=='operador' ? `<div class="card">
+          <h3>Descuentos manuales</h3>` : `<div class="card"><h3>Resumen</h3><div class="muted">Acceso operador: sin ganancia ni descuentos.</div>`}
+          <div class="grid2">
+            <div><label>IVA</label><input class="input" type="number" value="${iva}" oninput="state.mayorManualIva=this.value"></div>
+            <div><label>Sueldos 1</label><input class="input" type="number" value="${sueldos1}" oninput="state.mayorManualSueldos1=this.value"></div>
+            <div><label>Sueldos 2</label><input class="input" type="number" value="${sueldos2}" oninput="state.mayorManualSueldos2=this.value"></div>
+            <div><label>Gastos relativos</label><input class="input" type="number" value="${relativos}" oninput="state.mayorManualRelativos=this.value"></div>
+            <div><label>Otros gastos</label><input class="input" type="number" value="${otros}" oninput="state.mayorManualOtros=this.value"></div>
+          </div>
+          ${state.currentUser.role!=='operador' ? `<div class="row" style="margin-top:10px"><button class="btn btn-primary" onclick="renderMayor()">Recalcular</button></div>` : ``}
+        </div>
+
+        <div>
+          <div class="card">
+            <h3>Métricas del período</h3>
+            <div class="item between"><span>Cantidad de repartos</span><strong id="metricPedidos"></strong></div>
+            <div class="item between"><span>Valor ticket promedio</span><strong id="metricTicket"></strong></div>
+            <div class="item between"><span>Costo ticket promedio</span><strong id="metricCostoTicket"></strong></div>
+            <div class="item between"><span>Ganancia promedio por pedido</span><strong id="metricGananciaPedido"></strong></div>
+          </div>
+          ${state.currentUser.role!=='operador' ? `<div class="card" style="margin-top:14px">
+            <h3>Top 10 productos más vendidos</h3>
+            <div id="topProductosMayor" class="list"></div>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <h3>Ganancia neta mensual</h3>
+            <div class="item between"><span>Ganancia total</span><strong>${clp(totalGanancia)}</strong></div>
+            <div class="item between"><span>Total descuentos</span><strong>${clp(descuentos)}</strong></div>
+            <div class="item between"><span>Neto</span><strong>${clp(neto)}</strong></div>
+          </div>` : ``}
+        </div>
+      </div>
+    </div>`;
+
+  const pedidos = rows.reduce((a,x)=>a + Number(x.orders || 0), 0);
+  const ticketProm = pedidos ? Math.round(totalVentas / pedidos) : 0;
+  const costoTicket = pedidos ? Math.round(totalCosto / pedidos) : 0;
+  const gananciaPedido = pedidos ? Math.round(totalGanancia / pedidos) : 0;
+  if(state.currentUser.role==='operador') return;
+  const mp = document.getElementById('metricPedidos');
+  const mt = document.getElementById('metricTicket');
+  const mc = document.getElementById('metricCostoTicket');
+  const mg = document.getElementById('metricGananciaPedido');
+  if(mp) mp.textContent = pedidos.toLocaleString('es-CL');
+  if(mt) mt.textContent = clp(ticketProm);
+  if(mc) mc.textContent = clp(costoTicket);
+  if(mg) mg.textContent = clp(gananciaPedido);
+
+  const prodMap = {};
+  branchOrders().forEach(o=>{
+    const parts = String(o.date||'').split('-');
+    if(parts.length!==3 || `${parts[1]}-${parts[2]}` !== monthKey) return;
+    (o.items||[]).forEach(i=>{ prodMap[i.name] = (prodMap[i.name] || 0) + Number(i.qty || 0); });
+  });
+  const top = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const topEl = document.getElementById('topProductosMayor');
+  if(topEl){
+    topEl.innerHTML = top.length ? top.map((p,idx)=>`<div class="item between"><span>${idx+1}. ${p[0]}</span><strong>${p[1]}</strong></div>`).join('') : '<div class="muted">Aún no hay productos vendidos en este mes.</div>';
+  }
+}
+
+function capitalMonthKey(){
+  const srcDate = state.activeDate || '01-01-2026';
+  const parts = String(srcDate).split('-');
+  if(parts.length===3) return `${parts[1]}-${parts[2]}`;
+  return '01-2026';
+}
+function monthOrdersForCapital(monthKey){
+  return branchOrders().filter(o=>{
+    const parts = String(o.date||'').split('-');
+    if(parts.length!==3) return false;
+    return `${parts[1]}-${parts[2]}` === monthKey;
+  });
+}
+
+function renderCapital(){
+  const bid = workingBranchId();
+  const inv = inventoryValue(bid);
+  const monthKey = capitalMonthKey();
+  const capKey = `${bid}|${monthKey}`;
+  const cap = Number(state.capitalIncreases[capKey]||0);
+  const monthOrders = monthOrdersForCapital(monthKey);
+  const totalVentas = monthOrders.reduce((a,o)=>a+Number(o.total||0),0);
+  const totalCosto = monthOrders.reduce((a,o)=>a+orderCost(o),0);
+  const totalFacturas = state.invoices.filter(x=>x.branchId===bid).reduce((a,x)=>a+Number(x.totalCost||0),0);
+  const monthClosures = state.shiftClosures
+    .filter(s=>{
+      if(s.branchId!==bid) return false;
+      const parts = String(s.date||'').split('-');
+      if(parts.length!==3) return false;
+      return `${parts[1]}-${parts[2]}` === monthKey;
+    });
+  const totalGasto = monthClosures.reduce((a,s)=>a+Number(s.fuelExpense||0),0);
+  const dineroEnCaja = monthClosures.reduce((a,s)=>a+Number(s.expectedCash||0),0);
+  const totalGanancia = totalVentas - totalCosto - totalGasto;
+  const cajaReposicion = Math.max(0, totalCosto - totalFacturas);
+
+  document.getElementById('view-capital').innerHTML = `
+    <div class="card">
+      <h3>Control capital</h3>
+      ${renderDateNav('Mes control capital',"prevCapitalMonth()", monthNameFromKey(monthKey), "nextCapitalMonth()")}
+      <div class="muted small" style="margin-bottom:12px">Sucursal: ${branch().name} · Mes: ${monthKey}</div>
+      <div class="grid3">
+        <div class="card"><strong>Valor inventario actual</strong><div style="font-size:28px;margin-top:8px">${clp(inv)}</div></div>
+        <div class="card"><strong>Aumento de capital</strong><div style="font-size:28px;margin-top:8px">${clp(cap)}</div></div>
+        <div class="card"><strong>Base capital + inventario</strong><div style="font-size:28px;margin-top:8px">${clp(inv + cap)}</div></div>
+      </div>
+      <div class="grid3" style="margin-top:12px">
+        <div class="card"><strong>Ventas acumuladas mes</strong><div style="font-size:22px;margin-top:8px">${clp(totalVentas)}</div></div>
+        <div class="card"><strong>Costo acumulado mes</strong><div style="font-size:22px;margin-top:8px">${clp(totalCosto)}</div></div>
+        <div class="card"><strong>Ganancia acumulada mes</strong><div style="font-size:22px;margin-top:8px">${clp(totalGanancia)}</div></div>
+      </div>
+      <div class="grid3" style="margin-top:12px">
+        <div class="card"><strong>Dinero en caja</strong><div style="font-size:22px;margin-top:8px">${clp(dineroEnCaja)}</div><div class="muted small" style="margin-top:6px">Efectivo acumulado según cierres de turno.</div></div>
+        <div class="card"><strong>Monto que debe haber en caja</strong><div style="font-size:22px;margin-top:8px">${clp(cajaReposicion)}</div><div class="muted small" style="margin-top:6px">Costo vendido pendiente por reponer. Las facturas entrantes descuentan este monto porque ya se volvió a comprar.</div></div>
+        <div class="card"><strong>Capital total controlado</strong><div style="font-size:22px;margin-top:8px">${clp(inv + cap + totalFacturas)}</div></div>
+      </div>
+      ${canEdit() ? `
+      <div class="card" style="margin-top:12px">
+        <h3>Aumento de capital</h3>
+        <div class="grid3">
+          <div><label>Monto</label><input id="capitalInput" class="input" type="number" value="${cap||0}"></div>
+          <div><label>Mes</label><input class="input" value="${monthKey}" disabled></div>
+        </div>
+        <div class="row" style="margin-top:10px"><button class="btn btn-primary" onclick="saveCapitalIncrease()">Guardar capital</button></div>
+      </div>` : ``}
+    </div>`;
+}
+function saveCapitalIncrease(){
+  if(!canEdit()) return;
+  const bid = workingBranchId();
+  const monthKey = capitalMonthKey();
+  const val = Number(document.getElementById('capitalInput')?.value||0);
+  state.capitalIncreases[`${bid}|${monthKey}`] = val;
+  renderCapital();
+}
+
+
+function renderFacturas(){
+  const bid = workingBranchId();
+  const items = state.products.filter(p=>p.active && p.type==='simple' && p.trackStock!==false && isProductAvailableForBranch(p, bid));
+  const monthKey = currentFacturasMonthKey();
+  const rows = monthInvoicesForBranch(bid, monthKey);
+  const total = rows.reduce((a,x)=>a+(Number(x.totalCost)||0),0);
+  const invoiceCart = state.invoiceCart || [];
+  const detailVal = state.invoiceDetail || '';
+  const dateVal = state.invoiceDateDraft || state.activeDate;
+
+  document.getElementById('view-facturas').innerHTML = `
+    <div class="card">
+      <h3>Facturas entrantes</h3>
+      ${renderDateNav('Mes facturas',"prevFacturasMonth()", monthNameFromKey(monthKey), "nextFacturasMonth()")}
+      <div class="muted small" style="margin-bottom:12px">Sucursal: ${branch().name}</div>
+
+      ${canEdit() ? `
+      <div class="card" style="margin-bottom:12px">
+        <h3>Ingresar factura por producto</h3>
+        <div class="grid3">
+          <div><label>Detalle factura / proveedor</label><input id="facDetail" class="input" placeholder="Ej: Proveedor XYZ" value="${detailVal}"></div>
+          <div><label>Fecha</label><input id="facDate" class="input" value="${dateVal}"></div>
+          <div><label>Producto</label>
+            <select id="facProduct" class="input">
+              ${items.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="grid3" style="margin-top:10px">
+          <div><label>Cantidad</label><input id="facQty" class="input" type="number" value="1" min="1"></div>
+          <div><label>Costo unitario</label><input id="facUnitCost" class="input" type="number" value="0" min="0"></div>
+          <div style="align-self:end"><button class="btn btn-secondary" onclick="addInvoiceLine()">Agregar producto</button></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Detalle de factura</h3>
+          <div class="list">
+            ${invoiceCart.length ? invoiceCart.map((r,idx)=>`<div class="item between"><div><strong>${r.name}</strong><div class="muted small">${r.qty} x ${clp(r.unitCost)}</div></div><div class="row"><strong>${clp(r.totalCost)}</strong><button class="btn btn-danger" onclick="removeInvoiceLine(${idx})">Quitar</button></div></div>`).join('') : '<div class="muted">Aún no agregas productos.</div>'}
+          </div>
+          <div class="item between"><strong>Total factura</strong><strong>${clp(invoiceCart.reduce((a,x)=>a+Number(x.totalCost||0),0))}</strong></div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-secondary" onclick="clearInvoiceCart()">Limpiar</button>
+            <button class="btn btn-primary" onclick="saveProductInvoice()">Guardar factura</button>
+          </div>
+          <div class="muted small" style="margin-top:8px">Al guardar, el stock sube automáticamente y el costo unitario del producto se actualiza.</div>
+        </div>
+      </div>` : ``}
+
+      <div class="item between"><strong>Total facturas del mes</strong><strong>${clp(total)}</strong></div>
+      <div class="list">
+        ${rows.length ? rows.map(function(r){
+          const createdInfo = r.createdBy ? ' &middot; Ingresado por <strong>' + r.createdBy + '</strong>' + (r.createdAt ? ' a las ' + r.createdAt : '') : '';
+          const itemsLine = (r.items||[]).map(function(i){ return i.qty + 'x ' + i.name + ' (' + clp(i.unitCost) + ' c/u)'; }).join(' · ');
+          const editBtns = canEdit() ? '<div class="row" style="margin-top:8px;gap:6px"><button class="btn btn-secondary" style="font-size:12px" onclick="openEditInvoice(&quot;' + r.id + '&quot;)">Editar</button><button class="btn btn-danger" style="font-size:12px" onclick="deleteInvoice(&quot;' + r.id + '&quot;)">Eliminar</button></div>' : '';
+          return '<div class="item" style="display:block"><div class="between"><div><strong>' + (r.detail||'Factura') + '</strong><div class="muted small">' + (r.date||'') + createdInfo + '</div></div><strong>' + clp(Number(r.totalCost||0)) + '</strong></div><div class="muted small" style="margin-top:6px">' + itemsLine + '</div>' + editBtns + '</div>';
+        }).join('') : '<div class="muted">Sin facturas ingresadas en este mes.</div>'}
+      </div>
+    </div>`;
+
+  const facDetail = document.getElementById('facDetail');
+  const facDate = document.getElementById('facDate');
+  if(facDetail) facDetail.oninput = e => { state.invoiceDetail = e.target.value; };
+  if(facDate) facDate.oninput = e => { state.invoiceDateDraft = e.target.value; };
+}
+
+function addInvoiceLine(){
+  if(!canEdit()) return;
+  state.invoiceDetail = document.getElementById('facDetail')?.value || state.invoiceDetail || '';
+  state.invoiceDateDraft = document.getElementById('facDate')?.value || state.invoiceDateDraft || state.activeDate;
+  const productId = document.getElementById('facProduct').value;
+  const qty = Number(document.getElementById('facQty').value||0);
+  const unitCost = Number(document.getElementById('facUnitCost').value||0);
+  if(!productId || qty<=0 || unitCost<0) return alert('Completa producto, cantidad y costo unitario');
+  const p = state.products.find(x=>x.id===productId);
+  if(!p) return;
+  if(!state.invoiceCart) state.invoiceCart = [];
+  state.invoiceCart.push({
+    productId,
+    name:p.name,
+    qty,
+    unitCost,
+    totalCost: qty*unitCost
+  });
+  renderFacturas();
+}
+
+function removeInvoiceLine(index){
+  if(!canEdit()) return;
+  state.invoiceCart.splice(index,1);
+  renderFacturas();
+}
+
+function clearInvoiceCart(){
+  if(!canEdit()) return;
+  state.invoiceCart = [];
+  state.invoiceDetail = '';
+  state.invoiceDateDraft = state.activeDate;
+  renderFacturas();
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();
+}
+
+function deleteInvoice(invoiceId){
+  if(!canEdit()) return;
+  if(!confirm('¿Eliminar esta factura? Se revertirá el stock y costo de los productos.')) return;
+  const inv = state.invoices.find(x=>x.id===invoiceId);
+  if(!inv) return;
+  const bid = inv.branchId || workingBranchId();
+  // Revertir stock y recalcular costo promedio hacia atrás
+  (inv.items||[]).forEach(item=>{
+    let row = state.inventory.find(r=>r.branchId===bid && r.productId===item.productId);
+    if(!row) return;
+    const stockActual = Number(row.stock||0);
+    const costoActual = Number(row.cost||0);
+    const cantQuitar  = Number(item.qty||0);
+    const costoItem   = Number(item.unitCost||0);
+    const stockNuevo  = Math.max(0, stockActual - cantQuitar);
+    // Revertir promedio ponderado
+    const costoTotal  = stockActual * costoActual - cantQuitar * costoItem;
+    row.cost  = stockNuevo > 0 ? Math.max(0, Math.round(costoTotal / stockNuevo)) : 0;
+    row.stock = stockNuevo;
+  });
+  state.audit.push({action:'Factura eliminada', user:state.currentUser.name, branchId:bid, date:nowDateLocal(), time:nowTime(), detail:`Factura "${inv.detail}" del ${inv.date} eliminada`});
+  state.invoices = state.invoices.filter(x=>x.id!==invoiceId);
+  renderFacturas();
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+    syncDuenoChangesToBranch(bid);
+  } else if(typeof syncDuenoOnShiftClose==='function'){
+    syncDuenoOnShiftClose();
+  }
+}
+
+function openEditInvoice(invoiceId){
+  if(!canEdit()) return;
+  const inv = state.invoices.find(x=>x.id===invoiceId);
+  if(!inv) return;
+  if(!confirm('¿Editar esta factura? Se revertirá el inventario y podrás modificarla.')) return;
+  const bid = inv.branchId || workingBranchId();
+  // Revertir stock y costo igual que al eliminar
+  (inv.items||[]).forEach(item=>{
+    let row = state.inventory.find(r=>r.branchId===bid && r.productId===item.productId);
+    if(!row) return;
+    const stockActual = Number(row.stock||0);
+    const costoActual = Number(row.cost||0);
+    const cantQuitar  = Number(item.qty||0);
+    const costoItem   = Number(item.unitCost||0);
+    const stockNuevo  = Math.max(0, stockActual - cantQuitar);
+    const costoTotal  = stockActual * costoActual - cantQuitar * costoItem;
+    row.cost  = stockNuevo > 0 ? Math.max(0, Math.round(costoTotal / stockNuevo)) : 0;
+    row.stock = stockNuevo;
+  });
+  // Cargar la factura al carrito de facturas para edición
+  state.invoiceCart     = JSON.parse(JSON.stringify(inv.items||[]));
+  state.invoiceDetail   = inv.detail || '';
+  state.invoiceDateDraft = inv.date || state.activeDate;
+  // Eliminar la factura original
+  state.invoices = state.invoices.filter(x=>x.id!==invoiceId);
+  state.audit.push({action:'Factura en edición', user:state.currentUser.name, branchId:bid, date:nowDateLocal(), time:nowTime(), detail:`Factura "${inv.detail}" cargada para edición`});
+  renderFacturas();
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
+}
+
+function saveProductInvoice(){
+  if(!canEdit()) return;
+  // Leer siempre desde el DOM primero, luego fallback al state
+  const facDetailEl = document.getElementById('facDetail');
+  const facDateEl   = document.getElementById('facDate');
+  if(facDetailEl) state.invoiceDetail   = facDetailEl.value;
+  if(facDateEl)   state.invoiceDateDraft = facDateEl.value;
+  const detail = String(state.invoiceDetail || '').trim();
+  const date   = String(state.invoiceDateDraft || state.activeDate).trim() || state.activeDate;
+  const items  = (state.invoiceCart || []).slice();
+  if(!detail) return alert('Debes ingresar el detalle o nombre del proveedor');
+  if(!items.length) return alert('Agrega al menos un producto a la factura');
+  const totalCost = items.reduce((a,x)=>a+Number(x.totalCost||0),0);
+
+  items.forEach(item=>{
+    let row = inventoryRow(item.productId, workingBranchId());
+    if(!row){
+      row = {branchId:workingBranchId(), productId:item.productId, stock:0, cost:0, min:0};
+      state.inventory.push(row);
+    }
+    const stockActual  = Number(row.stock||0);
+    const costoActual  = Number(row.cost||0);
+    const cantNueva    = Number(item.qty||0);
+    const costoNuevo   = Number(item.unitCost||0);
+    const stockTotal   = stockActual + cantNueva;
+    // Promedio ponderado: (stock actual × costo actual + cantidad nueva × costo nuevo) / stock total
+    row.cost  = stockTotal > 0
+      ? Math.round((stockActual * costoActual + cantNueva * costoNuevo) / stockTotal)
+      : costoNuevo;
+    row.stock = stockTotal;
+  });
+
+  state.invoices.unshift({
+    id:uid(),
+    branchId:workingBranchId(),
+    detail,
+    totalCost,
+    date,
+    items,
+    createdBy: state.currentUser ? state.currentUser.name : 'Desconocido',
+    createdAt: nowTime()
+  });
+
+  state.invoiceCart = [];
+  state.invoiceDetail = '';
+  state.invoiceDateDraft = state.activeDate;
+  renderFacturas();
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();
+}
+
+function renderRepartidores(){
+  syncCourierDateToBranch();
+  const d = state.selectedCourierDate;
+  const orders = branchOrders().filter(x=>x.date===d);
+  const couriers = branchCouriers();
+  const data = couriers.map(c=>{
+    const mine = orders.filter(o=>o.courierId===c.id);
+    return {
+      name:c.name,
+      orders:mine.length,
+      total:mine.reduce((a,x)=>a+x.total,0),
+      ef:mine.reduce((a,x)=>a+x.payments.efectivo,0),
+      tr:mine.reduce((a,x)=>a+x.payments.transferencia,0),
+      tb:mine.reduce((a,x)=>a+x.payments.transbank,0)
+    };
+  }).filter(x=>x.orders>0);
+
+  document.getElementById('view-repartidores').innerHTML=`<div class="grid2">
+    <div>
+      <div class="card" style="margin-bottom:14px">
+        <h3>Repartidores</h3>
+        ${renderDateNav('Fecha repartidores',"prevRepartidoresDate()", d, "nextRepartidoresDate()")}
+        <div class="muted small">Aquí puedes cambiar el día para revisar cuánto vendió cada repartidor por sucursal.</div>
+      </div>
+      <div class="grid3">
+        ${data.length ? data.map(x=>`<div class="card"><h3>${x.name}</h3><div class="badge">${x.orders} pedidos</div><div class="grid3" style="margin-top:10px"><div class="card"><div class="muted small">Efectivo</div><strong>${clp(x.ef)}</strong></div><div class="card"><div class="muted small">Transfer.</div><strong>${clp(x.tr)}</strong></div><div class="card"><div class="muted small">Transbank</div><strong>${clp(x.tb)}</strong></div></div><div class="item between" style="margin-top:10px"><span>Total vendido</span><strong>${clp(x.total)}</strong></div><div class="item between"><span>A rendir en efectivo</span><strong>${clp(x.ef)}</strong></div></div>`).join('') : '<div class="card"><div class="muted">No hay repartos para esta fecha en esta sucursal.</div></div>'}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Resumen del día</h3>
+      <div class="item between"><span>Fecha elegida</span><strong>${d}</strong></div>
+      <div class="item between"><span>Total pedidos</span><strong>${orders.length}</strong></div>
+      <div class="item between"><span>Total vendido</span><strong>${clp(orders.reduce((a,x)=>a+x.total,0))}</strong></div>
+      <div class="item between"><span>Efectivo total</span><strong>${clp(orders.reduce((a,x)=>a+x.payments.efectivo,0))}</strong></div>
+      <div class="item between"><span>Transferencias total</span><strong>${clp(orders.reduce((a,x)=>a+x.payments.transferencia,0))}</strong></div>
+      <div class="item between"><span>Transbank total</span><strong>${clp(orders.reduce((a,x)=>a+x.payments.transbank,0))}</strong></div>
+    </div>
+  </div>`;
+}
+function renderInventario(){ checkStockWarning();
+  if(isAllBranches()){ document.getElementById('view-inventario').innerHTML = `<div class="card"><h3>Inventario</h3><div class="muted">Para esta sección debes elegir una sucursal específica arriba. En “Todas” solo puedes revisar paneles consolidados.</div></div>`; return; }
+  const items=state.products.filter(p=>p.active && p.type==='simple');
+  const selectedId = document.getElementById('invProductSelect') ? document.getElementById('invProductSelect').value : (items[0] ? items[0].id : '');
+  const currentRow = selectedId ? (inventoryRow(selectedId,workingBranchId()) || {stock:0,cost:0,min:0}) : {stock:0,cost:0,min:0};
+  // Panel de auditoría de ajustes de inventario — solo dueño
+  const invAuditBlock = state.currentUser && state.currentUser.role==='dueno' ? (()=>{
+    const bid = workingBranchId();
+    const auditRows = (state.audit||[])
+      .filter(a=>a.action==='Ajuste inventario' && (isAllBranches() || a.branchId===bid))
+      .slice(0,30);
+    if(!auditRows.length) return '';
+    return `<div class="card" style="margin-top:14px">
+      <h3>Historial de ajustes de inventario</h3>
+      <div class="list">${auditRows.map(a=>`
+        <div class="item">
+          <div class="between"><strong>${a.detail||''}</strong><span class="muted small">${a.date||''} ${a.time||''}</span></div>
+          <div class="muted small">Por: <strong>${a.user||''}</strong>${a.branchId?' · '+a.branchId:''}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  })() : '';
+
+  const adjustBlock=canEdit()?`<div class="card" style="margin-bottom:14px"><h3>Ajuste de inventario</h3><div class="grid3"><div><label>Producto</label><select id="invProductSelect" class="input" onchange="renderInventario()">${items.map(p=>`<option value="${p.id}" ${p.id===selectedId?'selected':''}>${p.name}</option>`).join('')}</select></div><div><label>Acción</label><select id="invActionSelect" class="input"><option value="sumar">Agregar stock</option><option value="restar">Quitar stock</option></select></div><div><label>Cantidad</label><input id="invQtyInput" class="input" type="number" value="1"></div></div><div class="grid3" style="margin-top:10px"><div><label>Stock mínimo</label><input id="invMinInput" class="input" type="number" value="${currentRow.min||0}"></div><div><label>Costo unitario</label><input id="invCostInput" class="input" type="number" value="${currentRow.cost||0}"></div></div><div class="row" style="margin-top:12px"><button class="btn btn-primary" onclick="adjustInventory()">Guardar ajuste</button></div><div class="muted small" style="margin-top:8px">Si agregas stock con costo, el capital/inventario valorizado sube automáticamente.</div></div>`:'';
+  document.getElementById('view-inventario').innerHTML=`${adjustBlock}<div class="grid3">${items.map(p=>{const row=inventoryRow(p.id,workingBranchId()) || {stock:0,cost:0,min:0}; return `<div class="card"><div class="between"><div><div style="font-weight:700">${p.name}</div><div class="muted small">Costo: ${clp(row.cost)} · Mínimo: ${row.min}</div></div><div style="font-weight:700" class="${Number(row.min||0)>0 && Number(row.stock||0)<=Number(row.min||0)?'red':'green'}">${row.stock}</div></div></div>`}).join('')}</div>${invAuditBlock}`;
+}
+function renderProductos(){
+  if(isAllBranches()){ document.getElementById('view-productos').innerHTML = `<div class="card"><h3>Productos</h3><div class="muted">Para esta sección debes elegir una sucursal específica arriba. En “Todas” solo puedes revisar paneles consolidados.</div></div>`; return; }
+  const editor=canEdit()?`<div class="grid2"><div class="card"><h3>Agregar categoría</h3><label>Nueva categoría</label><input id="newCategoryName" class="input" placeholder="Ej: Energéticas"><button class="btn btn-primary" style="margin-top:10px" onclick="addCategory()">Guardar categoría</button></div><div class="card"><h3>Agregar producto o promo</h3><div class='muted small' style='margin-bottom:8px'>Las promos descuentan producto base + bebida elegida + hielo.</div><label>Tipo</label><select id="newProductType" class="input"><option value="simple">Simple</option><option value="promo">Promo</option></select><label style="margin-top:8px">Nombre</label><input id="newProductName" class="input" placeholder="Nombre producto"><label style="margin-top:8px">Categoría</label><select id="newProductCategory" class="input">${state.categories.map(c=>`<option>${c}</option>`).join('')}</select><label style="margin-top:8px">Precio venta</label><input id="newProductPrice" class="input" type="number" value="0"><div id="promoBuilderBox" style="margin-top:8px"><label>Producto base promo</label><select id="newProductBase" class="input">${state.products.filter(p=>p.active).map(p=>`<option value="${p.id}">${p.name}</option>`).join("")}</select><label style="margin-top:8px">Tamaño bebida</label><select id="newProductDrinkSize" class="input"><option value="1.5">1.5lt</option><option value="3">3lt</option></select></div><button class="btn btn-primary" style="margin-top:10px" onclick="addProductManual()">Guardar producto</button></div></div>`:`<div class="muted">Solo dueño y encargado pueden modificar productos, precios y costos.</div>`;
+  document.getElementById('view-productos').innerHTML=`${editor}<div class="card" style="margin-top:14px"><h3>Productos cargados</h3><div class="list">${state.products.filter(p=>p.active && isProductAvailableForBranch(p, workingBranchId())).map(p=>{const row=inventoryRow(p.id,workingBranchId()) || {cost:0}; return `<div class="item between"><div><div style="font-weight:700">${p.name}</div><div class="muted small">${p.category} · ${p.type}</div></div><div style="min-width:190px"><label>Precio venta</label><input class="input" type="number" value="${p.salePrice}" ${canEdit()?'':'disabled'} onchange="updateSalePrice('${p.id}',this.value)"></div><div style="min-width:190px"><label>Costo ${branch().city}</label><input class="input" type="number" value="${row.cost}" ${canEdit() && p.trackStock!==false?'':'disabled'} onchange="updateCost('${p.id}',this.value)"></div></div>`}).join('')}</div></div>`; const t=document.getElementById('newProductType'); const box=document.getElementById('promoBuilderBox'); if(t&&box){ const sync=()=>box.style.display=t.value==='promo'?'block':'none'; t.onchange=sync; sync(); }
+}
+function renderUsuarios(){
+  if(state.currentUser.role!=='dueno'){
+    document.getElementById('view-usuarios').innerHTML = `<div class="card"><h3>Usuarios</h3><div class="muted">Solo el dueño puede crear o modificar usuarios.</div></div>`;
+    return;
+  }
+  document.getElementById('view-usuarios').innerHTML = `<div class="grid2">
+    <div class="card">
+      <h3>Agregar usuario</h3>
+      <input id="nun" class="input" placeholder="Nombre usuario">
+      <select id="nur" class="input" style="margin-top:10px"><option value="encargado">Encargado</option><option value="operador">Operador</option></select>
+      <select id="nub" class="input" style="margin-top:10px">${state.branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('')}</select>
+      <button class="btn btn-primary" style="margin-top:10px" onclick="addUserManual()">Guardar usuario</button>
+      <hr style="margin:14px 0;border:none;border-top:1px solid var(--border)">
+      <input id="ncn" class="input" placeholder="Nuevo repartidor">
+      <select id="ncb" class="input" style="margin-top:10px">${state.branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('')}</select>
+      <button class="btn btn-secondary" style="margin-top:10px" onclick="addCourierManual()">Agregar repartidor</button>
+    </div>
+    <div class="card"><h3>Usuarios y repartidores</h3><div class="list">
+      ${state.users.map(u=>`<div class="item" style="display:block"><div class="between"><div><div style="font-weight:700">${u.name}</div><div class="muted small">${u.role} · ${state.branches.find(b=>b.id===u.branchId)?.name||u.branchId}</div></div><div class="badge">${u.username}</div></div><div class="row" style="margin-top:8px"><div style="flex:1"><label>Clave</label><input class="input" type="password" value="${u.password||''}" oninput="updateUserPassword('${u.id}',this.value)"></div></div></div>`).join('')}
+      ${state.couriers.map(c=>`<div class="item between"><div><div style="font-weight:700">${c.name}</div><div class="muted small">Repartidor · ${state.branches.find(b=>b.id===c.branchId)?.name||c.branchId}</div></div><button class="btn btn-secondary" onclick="toggleCourier('${c.id}')">${c.active?'Desactivar':'Activar'}</button></div>`).join('')}
+    </div></div>
+  </div>`;
+}function renderTurno(){
+  if(isAllBranches()){ document.getElementById('view-turno').innerHTML = `<div class="card"><h3>Turno</h3><div class="muted">Para esta sección debes elegir una sucursal específica arriba. En “Todas” solo puedes revisar paneles consolidados.</div></div>`; return; }
+  const {summary, fuel, expectedCash, realProfit} = currentShiftFinancials();
+  const closureHistory = state.shiftClosures.filter(s=>s.branchId===workingBranchId()).slice().reverse();
+  document.getElementById('view-turno').innerHTML=`<div class="grid2">
+    <div>
+      <div class="card">
+        <h3>Turno actual</h3>
+        <label>Nombre del turno</label>
+        <input id="sn" class="input" value="${state.shiftName}">
+        <div class="muted" style="margin:10px 0">Fecha activa: <strong>${state.activeDate}</strong></div>
+        <div class="row">
+          <button class="btn ${state.turnOpen?'btn-danger':'btn-primary'}" onclick="toggleTurn()">${state.turnOpen?'Cerrar turno':'Abrir turno'}</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>Resumen de cierre del día</h3>
+        <div class="item between"><span>Ventas totales</span><strong>${clp(summary.sales)}</strong></div>
+        <div class="item between"><span>Pedidos</span><strong>${summary.orders}</strong></div>
+        <div class="item between"><span>Efectivo</span><strong>${clp(summary.payments.ef)}</strong></div>
+        <div class="item between"><span>Transferencias</span><strong>${clp(summary.payments.tr)}</strong></div>
+        <div class="item between"><span>Transbank</span><strong>${clp(summary.payments.tb)}</strong></div>
+        ${state.currentUser.role!=='operador' ? `<div class="item between"><span>Costo productos</span><strong>${clp(summary.cost)}</strong></div>` : ''}
+        ${state.currentUser.role!=='operador' ? `<div class="item between"><span>Ganancia antes de bencina</span><strong>${clp(summary.profit)}</strong></div>` : ''}
+        <div class="item">
+          <label>Gasto bencina del turno (pagado por app)</label>
+          <input id="fuelExpenseInput" class="input" type="text" inputmode="numeric" value="${(state.fuelExpenseDrafts[turnoDraftKey()] ?? state.fuelExpense) || ''}" placeholder="Ej: 25000">
+        </div>
+        <div class="item between"><span>Bencina registrada</span><strong data-role="fuel-val">${clp(fuel)}</strong></div>
+        <div class="item between"><span>Efectivo que debe entregar el repartidor</span><strong data-role="expected-cash">${clp(expectedCash)}</strong></div>
+        ${state.currentUser.role!=='operador' ? `<div class="item between"><span>Ganancia final del turno</span><strong data-role="real-profit">${clp(realProfit)}</strong></div>` : ''}
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>Nuevo día</h3>
+        <label>Fecha nueva</label>
+        <input id="newDayInput" class="input" placeholder="Ej: 13-03-2026">
+        <button class="btn btn-primary" style="margin-top:10px" onclick="openNewDay()">Abrir nuevo día</button>
+        <div class="muted small" style="margin-top:8px">Al abrir nuevo día, cambia la fecha activa y mantiene el historial completo.</div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>Historial de cierres</h3>
+        <div class="list">
+          ${closureHistory.length ? closureHistory.map(c=>`<div class="item">
+            <div class="between"><strong>${c.date}</strong><strong>${clp(c.sales)}</strong></div>
+            <div class="muted small">${c.shiftName} · cerrado por <strong>${c.closedBy}</strong> a las ${c.closedAt} · sucursal: ${c.branchName||''}</div>
+            ${state.currentUser.role!=='operador' ? `<div class="muted small">Costo: ${clp(c.cost)} · Bencina: ${clp(c.fuelExpense||0)} · Ganancia final: ${clp(c.realProfit||c.profit||0)}</div>` : ''}
+            <div class="muted small">Efectivo a rendir: ${clp(c.expectedCash||0)}</div>
+          </div>`).join('') : '<div class="muted">Aún no hay cierres guardados.</div>'}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('sn').oninput=e=>state.shiftName=e.target.value;
+  const fe = document.getElementById('fuelExpenseInput');
+  const cc = document.getElementById('cashCountedInput');
+  if(fe) fe.oninput = ()=>refreshTurnoSummary();
+  if(cc) cc.oninput = ()=>refreshTurnoSummary();
+}
+function renderAdmin(){
+  const monthKey = ownerMonthKey();
+  const branchesForOwner = state.branches.filter(b=>b.id!=='all');
+  const cards = branchesForOwner.map(b=>{
+    const orders = monthOrdersForBranch(b.id, monthKey);
+    const ventas = orders.reduce((a,o)=>a+Number(o.total||0),0);
+    const costo = orders.reduce((a,o)=>a+orderCost(o),0);
+    const gasto = shiftClosuresForBranchMonth(b.id, monthKey).reduce((a,s)=>a+Number(s.fuelExpense||0),0);
+    const ganancia = ventas - costo - gasto;
+    const inventario = inventoryValue(b.id);
+    const facturas = monthInvoicesForBranch(b.id, monthKey).reduce((a,x)=>a+Number(x.totalCost||0),0);
+    const cap = Number(state.capitalIncreases[`${b.id}|${monthKey}`]||0);
+    const caja = Math.max(0, (facturas + cap) - inventario);
+    return {id:b.id,name:b.name,ventas,costo,gasto,ganancia,inventario,facturas,cap,caja};
+  });
+
+  const total = cards.reduce((acc,c)=>{
+    acc.ventas += c.ventas; acc.costo += c.costo; acc.gasto += c.gasto; acc.ganancia += c.ganancia;
+    acc.inventario += c.inventario; acc.facturas += c.facturas; acc.cap += c.cap; acc.caja += c.caja;
+    return acc;
+  }, {ventas:0,costo:0,gasto:0,ganancia:0,inventario:0,facturas:0,cap:0,caja:0});
+
+  document.getElementById('view-admin').innerHTML=`<div class="card">
+    <h3>Vista dueño</h3>
+    ${renderDateNav('Mes vista dueño',"prevOwnerMonth()", monthNameFromKey(monthKey), "nextOwnerMonth()")}
+    <div class="grid4">
+      <div class="card"><strong>Ventas totales</strong><div style="font-size:28px;margin-top:8px">${clp(total.ventas)}</div></div>
+      <div class="card"><strong>Costos totales</strong><div style="font-size:28px;margin-top:8px">${clp(total.costo)}</div></div>
+      <div class="card"><strong>Gastos totales</strong><div style="font-size:28px;margin-top:8px">${clp(total.gasto)}</div></div>
+      <div class="card"><strong>Ganancia total</strong><div style="font-size:28px;margin-top:8px">${clp(total.ganancia)}</div></div>
+    </div>
+    <div class="grid4" style="margin-top:12px">
+      <div class="card"><strong>Inventario total</strong><div style="font-size:24px;margin-top:8px">${clp(total.inventario)}</div></div>
+      <div class="card"><strong>Facturas totales</strong><div style="font-size:24px;margin-top:8px">${clp(total.facturas)}</div></div>
+      <div class="card"><strong>Aumento capital total</strong><div style="font-size:24px;margin-top:8px">${clp(total.cap)}</div></div>
+      <div class="card"><strong>Caja requerida total</strong><div style="font-size:24px;margin-top:8px">${clp(total.caja)}</div></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>Detalle por sucursal</h3>
+      <div style="overflow:auto">
+        <table style="width:100%; border-collapse:collapse; background:#fff; min-width:1100px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb">Sucursal</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Ventas</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Costo</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Gasto</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Ganancia</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Inventario</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Facturas</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Cap. extra</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #e5e7eb">Caja requerida</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cards.map(c=>`
+              <tr>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;font-weight:700">${c.name}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.ventas)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.costo)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.gasto)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.ganancia)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.inventario)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.facturas)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.cap)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:right">${clp(c.caja)}</td>
+              </tr>`).join('')}
+            <tr>
+              <td style="padding:10px;border-top:2px solid #111827;font-weight:800">TOTAL NEGOCIO</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.ventas)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.costo)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.gasto)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.ganancia)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.inventario)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.facturas)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.cap)}</td>
+              <td style="padding:10px;border-top:2px solid #111827;text-align:right;font-weight:800">${clp(total.caja)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+function setDashboardPeriod(p){state.dashboardPeriod=p; renderDashboard()}
+function applyDashboardDates(){
+  const from = document.getElementById('dashFrom') ? document.getElementById('dashFrom').value.trim() : state.dashboardFrom;
+  const to = document.getElementById('dashTo') ? document.getElementById('dashTo').value.trim() : from;
+  if(!from) return;
+  state.dashboardFrom = from;
+  state.dashboardTo = to || from;
+  renderDashboard();
+}
+function setCategory(c){state.category=c; renderVenta()}
+function addProductToCart(pid){
+  const p=state.products.find(x=>x.id===pid); if(!p) return;
+  if(p.type==='promo'){state.pendingPromo=p; state.promoDrinkId=''; renderVenta(); return}
+  if(p.isVariablePrice){
+    const raw = prompt('Ingresa el monto del reparto libre', p.salePrice||0);
+    if(raw===null) return;
+    const amount = Number(String(raw).replace(/\D/g,'')) || 0;
+    pushCartItem(p.id,p.name,p.category,amount,p.type,[]);
+    renderVenta();
+    return;
+  }
+  const comps = p.trackStock===false ? [] : [{productId:p.id,qty:1}];
+  pushCartItem(p.id,p.name,p.category,p.salePrice,p.type,comps); renderVenta()
+}
+function pushCartItem(productId,name,category,salePrice,type,components){const ex=state.cart.find(i=>i.name===name && i.salePrice===salePrice); if(ex) ex.qty+=1; else state.cart.push({id:uid(),productId,name,category,qty:1,salePrice,type,components:components||[]})}
+function selectPromoDrinkAndAdd(drinkId){
+  state.promoDrinkId = drinkId;
+  // Si estamos cambiando bebida de un item ya en el carrito
+  if(state._changingDrinkCartId){
+    const cartItem = state.cart.find(x=>x.id===state._changingDrinkCartId);
+    if(cartItem){
+      const drink = state.products.find(x=>x.id===drinkId);
+      if(drink){
+        // Actualizar nombre con la nueva bebida
+        const promoBase = cartItem.name.split(' + ')[0];
+        cartItem.name = promoBase + ' + ' + drink.name;
+        // Actualizar componentes: reemplazar la bebida anterior por la nueva
+        const hieloProduct = state.products.find(x=>String(x.name||'').trim().toLowerCase()==='hielo');
+        const hieloId = hieloProduct ? hieloProduct.id : null;
+        const baseProductId = state.pendingPromo.baseProductId || '';
+        cartItem.components = [
+          ...(baseProductId ? [{productId: baseProductId, qty:1}] : []),
+          {productId: drinkId, qty:1},
+          ...(hieloId ? [{productId: hieloId, qty:1}] : [])
+        ];
+      }
+    }
+    state._changingDrinkCartId = null;
+    state.pendingPromo = null;
+    state.promoDrinkId = '';
+    renderVenta();
+    return;
+  }
+  confirmPromoSelection();
+}
+
+function confirmPromoSelection(){
+  if(!state.pendingPromo) return;
+  let drink = null;
+  if(state.pendingPromo.specialProductId) drink = state.products.find(x=>x.id===state.pendingPromo.specialProductId);
+  else { if(!state.promoDrinkId) return; drink=state.products.find(x=>x.id===state.promoDrinkId); }
+  if(!drink) return;
+  const finalName = state.pendingPromo.specialProductId ? state.pendingPromo.name : state.pendingPromo.name.replace('+ 1.5lt', '+ ' + drink.name).replace('+ 3lt', '+ ' + drink.name);
+  const components = promoRecipe(state.pendingPromo.id,drink.id);
+  const hasBase = components.some(c=>c.productId && c.productId!==drink.id && c.productId!=='e5');
+  if(!hasBase){
+    alert('La promo no tiene producto base configurado. Revisa la carta de productos.');
+    return;
+  }
+  pushCartItem(state.pendingPromo.id,finalName,state.pendingPromo.category,state.pendingPromo.salePrice,state.pendingPromo.type,components); state.pendingPromo=null; state.promoDrinkId=''; renderVenta()
+}
+function cancelPromoSelection(){state.pendingPromo=null; state.promoDrinkId=''; state._changingDrinkCartId=null; renderVenta()}
+
+// Cambiar bebida de una promo ya agregada al carrito
+function changeDrinkInCart(cartItemId){
+  const cartItem = state.cart.find(x=>x.id===cartItemId);
+  if(!cartItem) return;
+  const promoProduct = state.products.find(p=>p.id===cartItem.productId);
+  if(!promoProduct) return;
+
+  // Guardamos el id del item del carrito que vamos a modificar
+  state._changingDrinkCartId = cartItemId;
+
+  // Activamos el selector de bebida como si fuera una promo nueva
+  state.pendingPromo = promoProduct;
+  state.promoDrinkId = '';
+  renderVenta();
+}
+function changeQty(id,delta){const it=state.cart.find(x=>x.id===id); if(!it) return; it.qty+=delta; if(it.qty<=0) state.cart=state.cart.filter(x=>x.id!==id); renderVenta()}
+function removeItem(id){state.cart=state.cart.filter(x=>x.id!==id); renderVenta()}
+function cancelOrder(){state.cart=[]; state.paymentMode='efectivo'; state.mixEf=0; state.mixTr=0; state.mixTb=0; state.pendingPromo=null; state.promoDrinkId=''; renderVenta()}
+function saveOrder(){if(!state.cart.length) return alert('No hay pedido'); if(!state.selectedCourierId) return alert('Elige repartidor'); if(state.paymentMode==='mixto'){const sum=numVal(state.mixEf)+numVal(state.mixTr)+numVal(state.mixTb); if(sum!==total()) return alert('La suma del pago mixto no coincide con el total')} let payments={efectivo:0,transferencia:0,transbank:0}; if(state.paymentMode==='efectivo') payments.efectivo=total(); if(state.paymentMode==='transferencia') payments.transferencia=total(); if(state.paymentMode==='transbank') payments.transbank=total(); if(state.paymentMode==='mixto'){payments.efectivo=numVal(state.mixEf); payments.transferencia=numVal(state.mixTr); payments.transbank=numVal(state.mixTb)} const c=state.couriers.find(x=>x.id===state.selectedCourierId); const savedCart=JSON.parse(JSON.stringify(state.cart));
+    // Guardar el costo unitario de cada componente en el momento de la venta
+    savedCart.forEach(item=>{
+      const comps = item.components && item.components.length ? item.components : [{productId:item.productId, qty:1}];
+      comps.forEach(c=>{
+        const row = inventoryRow(c.productId, workingBranchId());
+        c.costAtSale = row ? Number(row.cost||0) : 0;
+      });
+      item.components = comps;
+      applyStock(item.components, -item.qty);
+    }); state.orders.unshift({id:uid(),date:state.activeDate,branchId:workingBranchId(),branchName:branch().name,createdBy:state.currentUser.name,courierId:state.selectedCourierId,courierName:c.name,time:nowTime(),items:savedCart,subtotal:subtotal(),transbankFee:transbankFee(),total:total(),paymentMode:state.paymentMode,payments}); cancelOrder(); state.selectedHistoryDate=state.activeDate; state.view='libro'; render(); if(typeof window._fbSaveState==='function') window._fbSaveState(); if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();}
+function deleteSale(orderId){ if(!confirm('¿Eliminar este pedido?')) return; const idx=state.orders.findIndex(o=>o.id===orderId); if(idx<0) return; const order=state.orders[idx]; order.items.forEach(item=>applyStock(item.components,item.qty)); state.audit.push({action:'Venta eliminada',user:state.currentUser.name,date:nowDateLocal(),time:nowTime(),detail:`Pedido ${order.id} eliminado por error de registro`}); state.orders.splice(idx,1); render(); if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+    syncDuenoChangesToBranch(order.branchId);
+  } else if(typeof syncDuenoOnShiftClose==='function'){
+    syncDuenoOnShiftClose();
+  }
+}
+function openEditOrder(orderId){
+  const order = state.orders.find(o=>o.id===orderId);
+  if(!order) return;
+  if(!confirm('¿Modificar este pedido? Se cargará al carrito para que puedas editarlo.')) return;
+
+  // 1. Restaurar stock de los componentes del pedido original
+  order.items.forEach(item => applyStock(item.components, item.qty));
+
+  // 2. Cargar los items del pedido al carrito
+  //    Conservamos la estructura completa (type, components, etc.)
+  state.cart = order.items.map(i => ({
+    id: uid(),
+    productId: i.productId,
+    name: i.name,
+    category: i.category,
+    salePrice: i.salePrice,
+    type: i.type,
+    qty: i.qty,
+    components: JSON.parse(JSON.stringify(i.components || []))
+  }));
+
+  // 3. Restaurar método de pago y repartidor del pedido original
+  state.paymentMode = order.paymentMode || 'efectivo';
+  state.selectedCourierId = order.courierId || (branchCouriers()[0]||{}).id || '';
+  state.mixEf = order.payments ? order.payments.efectivo : 0;
+  state.mixTr = order.payments ? order.payments.transferencia : 0;
+  state.mixTb = order.payments ? order.payments.transbank : 0;
+
+  // 4. Eliminar el pedido original del historial
+  const idx = state.orders.findIndex(o=>o.id===orderId);
+  if(idx >= 0) state.orders.splice(idx, 1);
+
+  state.audit.push({action:'Pedido en edición',user:state.currentUser.name,date:nowDateLocal(),time:nowTime(),detail:`Pedido ${orderId} devuelto al carrito para edición`});
+
+  // 5. Ir a venta rápida con el carrito cargado
+  state.view = 'venta';
+  state.pendingPromo = null;
+  state.promoDrinkId = '';
+  render();
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
+}
+
+function toggleTurn(){ if(state.turnOpen){ closeCurrentShift(); } else { state.turnOpen = true; if(typeof window._fbSaveState==='function') window._fbSaveState(); } render(); }
+function openNewDay(){const val=document.getElementById('newDayInput').value.trim(); if(!val) return alert('Ingresa una fecha'); state.activeDate=val; state.selectedHistoryDate=val; state.turnOpen=true; const k=`${workingBranchId()}|${val}`; state.fuelExpense = state.fuelExpenseDrafts[k] || ''; state.cashCounted = state.cashCountedDrafts[k] || ''; state.view='dashboard'; render(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function selectHistoryDate(d){state.selectedHistoryDate=d; renderLibro()}
+function applyLibroDate(){ const i=document.getElementById('libroDateInput'); if(!i) return; state.selectedHistoryDate=i.value.trim(); renderLibro(); }
+function changeLibroDate(delta){
+  const p=parseDMY(state.selectedHistoryDate); if(!p) return;
+  p.setDate(p.getDate()+Number(delta||0));
+  state.selectedHistoryDate=formatDMY(p);
+  renderLibro();
+}
+function selectCourierDate(d){state.selectedCourierDate=d; renderRepartidores()}
+function adjustInventory(){
+  if(!canEdit()) return;
+  const productId=document.getElementById('invProductSelect').value;
+  const action=document.getElementById('invActionSelect').value;
+  const qty=Number(document.getElementById('invQtyInput').value||0);
+  const min=Number(document.getElementById('invMinInput').value||0);
+  const cost=Number(document.getElementById('invCostInput').value||0);
+  if(!productId) return;
+  let row=inventoryRow(productId,workingBranchId());
+  if(!row){row={branchId:workingBranchId(),productId,stock:0,cost:0,min:0}; state.inventory.push(row)}
+  if(qty>0){
+    if(action==='sumar') row.stock += qty;
+    if(action==='restar') row.stock = Math.max(0,row.stock-qty);
+  }
+  row.min = Math.max(0,min);
+  row.cost = Math.max(0,cost);
+  state.audit.push({
+    action: 'Ajuste inventario',
+    user: state.currentUser ? state.currentUser.name : 'Desconocido',
+    branchId: workingBranchId(),
+    date: nowDateLocal(),
+    time: nowTime(),
+    detail: `${state.products.find(p=>p.id===productId)?.name||productId} · ${action} ${qty} · costo $${cost} · mín ${min}`
+  });
+  renderInventario();
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
+}
+function addCategory(){if(!canEdit()) return; const n=document.getElementById('newCategoryName').value.trim(); if(!n) return; if(!state.categories.includes(n)) state.categories.push(n); renderProductos(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function addProductManual(){if(!canEdit()) return; const n=document.getElementById('newProductName').value.trim(); const c=document.getElementById('newProductCategory').value; const p=Number(document.getElementById('newProductPrice').value||0); const t=document.getElementById('newProductType').value; if(!n) return; const id=uid(); if(t==='promo'){ const base=document.getElementById('newProductBase').value; const size=document.getElementById('newProductDrinkSize').value; state.products.push({id:id,name:n,category:c,salePrice:p,type:'promo',active:true,baseProductId:base,drinkSize:size}); } else { state.products.push({id:id,name:n,category:c,salePrice:p,type:'simple',active:true}); state.inventory.push({branchId:workingBranchId(),productId:id,stock:0,cost:0,min:0}); } renderProductos(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function updateSalePrice(productId,value){if(!canEdit()) return; const p=state.products.find(x=>x.id===productId); if(!p) return; p.salePrice=Number(value||0)}
+function updateCost(productId,value){if(!canEdit()) return; let row=inventoryRow(productId,workingBranchId()); if(!row){row={branchId:workingBranchId(),productId,stock:0,cost:0,min:0}; state.inventory.push(row)} row.cost=Number(value||0)}
+function addUserManual(){const n=document.getElementById('nun').value.trim(); const r=document.getElementById('nur').value; const b=document.getElementById('nub').value; if(!n) return; state.users.push({id:uid(),name:n,role:r,branchId:b,username:n.toLowerCase().split(' ')[0],password:(r==='operador'?'1111':'1234')}); renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function addCourierManual(){const n=document.getElementById('ncn').value.trim(); const b=document.getElementById('ncb').value; if(!n) return; state.couriers.push({id:uid(),name:n,branchId:b,active:true}); renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function toggleCourier(id){const c=state.couriers.find(x=>x.id===id); if(c){c.active=!c.active; renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}} function updateUserPassword(id,value){const u=state.users.find(x=>String(x.id)===String(id)); if(!u || state.currentUser.role!=='dueno') return; u.password=String(value||'').trim();}
+
+
+function parseDMY(dmy){
+  const m = String(dmy||'').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if(!m) return null;
+  const d = new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+  return isNaN(d.getTime()) ? null : d;
+}
+function formatDMY(date){
+  const dd = String(date.getDate()).padStart(2,'0');
+  const mm = String(date.getMonth()+1).padStart(2,'0');
+  const yyyy = date.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+function setGlobalDate(dmy){
+  const parsed = parseDMY(dmy);
+  if(!parsed) return alert('Fecha inválida. Usa formato dd-mm-aaaa');
+  const val = formatDMY(parsed);
+  state.activeDate = val;
+  state.selectedHistoryDate = val;
+  state.selectedCourierDate = val;
+  render();
+}
+function applyGlobalDate(){
+  const inp = document.getElementById('globalDateInput');
+  if(!inp) return;
+  setGlobalDate(inp.value);
+}
+function changeActiveDate(delta){
+  const parsed = parseDMY(state.activeDate);
+  if(!parsed) return;
+  parsed.setDate(parsed.getDate() + Number(delta||0));
+  setGlobalDate(formatDMY(parsed));
+}
+
+initLogin();
+
+function exportLibroMayorCSV(){
+  try{
+    const monthKey = currentMayorMonthKey();
+    const rows = groupedDailyRows(monthKey);
+    if(!rows.length){
+      alert('No hay datos en el libro mayor para exportar.');
+      return;
+    }
+    const iva = numManual(state.mayorManualIva);
+    const sueldos1 = numManual(state.mayorManualSueldos1);
+    const sueldos2 = numManual(state.mayorManualSueldos2);
+    const relativos = numManual(state.mayorManualRelativos);
+    const otros = numManual(state.mayorManualOtros);
+
+    const totalVentas = rows.reduce((a,x)=>a+x.sales,0);
+    const totalCosto = rows.reduce((a,x)=>a+x.cost,0);
+    const totalGasto = rows.reduce((a,x)=>a+x.gasto,0);
+    const totalGanancia = rows.reduce((a,x)=>a+x.ganancia,0);
+    const pedidos = rows.reduce((a,x)=>a + Number(x.orders || 0), 0);
+    const ticketProm = pedidos ? Math.round(totalVentas / pedidos) : 0;
+    const costoTicket = pedidos ? Math.round(totalCosto / pedidos) : 0;
+    const gananciaPedido = pedidos ? Math.round(totalGanancia / pedidos) : 0;
+    const descuentos = iva + sueldos1 + sueldos2 + relativos + otros;
+    const neto = totalGanancia - descuentos;
+
+    let csv = "Sucursal,Mes,Fecha,Venta,Costo,Gasto,Ganancia,Pedidos\n";
+    rows.forEach(r=>{
+      csv += `"${branch().name}","${monthKey}","${r.date}",${r.sales},${r.cost},${r.gasto},${r.ganancia},${r.orders}\n`;
+    });
+
+    csv += "\nResumen,Monto\n";
+    csv += `"Ventas totales",${totalVentas}\n`;
+    csv += `"Costo total",${totalCosto}\n`;
+    csv += `"Gasto total",${totalGasto}\n`;
+    csv += `"Ganancia total",${totalGanancia}\n`;
+    csv += `"Cantidad de repartos",${pedidos}\n`;
+    csv += `"Valor ticket promedio",${ticketProm}\n`;
+    csv += `"Costo ticket promedio",${costoTicket}\n`;
+    csv += `"Ganancia promedio por pedido",${gananciaPedido}\n`;
+    csv += `"IVA",${iva}\n`;
+    csv += `"Sueldos 1",${sueldos1}\n`;
+    csv += `"Sueldos 2",${sueldos2}\n`;
+    csv += `"Gastos relativos",${relativos}\n`;
+    csv += `"Otros gastos",${otros}\n`;
+    csv += `"Total descuentos",${descuentos}\n`;
+    csv += `"Ganancia neta mensual",${neto}\n`;
+
+    const blob = new Blob(["\ufeff" + csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const safeBranch = branch().name.replace(/\s+/g,'_');
+    a.download = `libro_mayor_${safeBranch}_${monthKey}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch(e){
+    console.error(e);
+    alert('No se pudo exportar el libro mayor.');
+  }
+}
+
+</script>
+
+
+
+
+
+
+
+<script>
+(function(){
+ const costMap = {"beer_silver": 3500, "beer_cristal": 4140, "beer_royal": 4620, "beer_bud": 5000, "beer_heineken": 4980, "beer_corona": 5325, "beer_austral": 5400, "beer_kunstmann": 5400, "cig_americanos": 2100, "cig_pallmall_azul": 4900, "cig_pallmall_click": 4900, "cig_kent_manzana": 5400, "cig_kent_rosado": 5400, "cig_lucky_click": 6100, "cig_lucky_naranja": 6100, "cig_lucky_berries": 6100, "pisco_mistral": 6290, "pisco_alto": 5500, "pisco_manzana": 10900, "pisco_barrica": 10900, "pisco_40": 10900, "wh_blenders_manzana": 6800, "wh_blenders_miel": 6800, "wh_ballantines": 8000, "wh_jony_rojo": 11900, "wh_jony_negro": 25300, "wh_jack_manzana": 22900, "wh_jack_miel": 22900, "wh_jack_negro": 22900, "liq_ron_blanco": 4500, "liq_ron_havana": 6000, "liq_vodka_black": 5800, "liq_tequila": 11000, "liq_ramazzotti": 10000, "liq_jagger": 11000, "liq_absolut": 11500, "liq_bombay": 12500, "cock_mistral_ice": 7400, "cock_mistral_energy": 7400, "cock_capel_ice": 5340, "cock_pisco_sour": 3700, "cock_mango_sour": 3700, "cock_pina_colada": 4300, "cock_toffee": 3900, "cock_mojito": 0, "wine_gato": 3450, "wine_export": 3400, "wine_casillero": 4400, "wine_esp_moscato": 3500, "wine_esp_brut": 3500, "b1": 1600, "b2": 1600, "b3": 1600, "b4": 1600, "b5": 1600, "b6": 1600, "b7": 660, "b8": 2450, "b9": 2450, "b10": 2450, "b11": 2450, "b12": 1100, "b13": 1600, "b14": 1600, "rb1": 1300, "rb2": 1300, "rb3": 1300, "e1": 250, "e2": 1000, "e3": 2000, "e4": 1000, "e5": 350, "e6": 250, "e7": 0};
+ state.users.forEach(u=>{ if(!u.password) u.password = u.role==='dueno' ? '2812' : '1234'; });
+ ['conce','la','chi'].forEach(branchId=>{
+   state.products.forEach(p=>{
+     if(p.trackStock===false || p.type==='promo') return;
+     let row = state.inventory.find(r=>r.branchId===branchId && r.productId===p.id);
+     if(!row){
+       row = {branchId:branchId, productId:p.id, stock:0, cost:(costMap[p.id]||0), min:0};
+       state.inventory.push(row);
+     } else if((!row.cost || row.cost===0) && costMap[p.id]!==undefined){
+       row.cost = costMap[p.id];
+     }
+   });
+ });
+})();
+</script>
+
+
+<script>
+window.addEventListener('load', function(){
+  try{
+    // Dejar base limpia sin tocar login, usuarios, carta ni reglas
+    state.orders = [];
+    state.invoices = [];
+    state.audit = [];
+    state.shiftClosures = [];
+    state.invoiceCart = [];
+    state.cart = [];
+    state.pendingPromo = null;
+    state.promoDrinkId = '';
+    state.paymentMode = 'efectivo';
+    state.selectedCourierId = '';
+    state.mixEf = 0;
+    state.mixTr = 0;
+    state.mixTb = 0;
+    state.fuelExpense = '';
+    state.cashCounted = '';
+    state.monthlyExpenses = {};
+    state.capitalIncreases = {};
+    state.mayorManualIva = '';
+    state.mayorManualSueldos1 = '';
+    state.mayorManualSueldos2 = '';
+    state.mayorManualRelativos = '';
+    state.mayorManualOtros = '';
+
+    (state.inventory || []).forEach(r => {
+      r.stock = 0;
+      r.cost = 0;
+      r.min = 0;
+    });
+
+    state.currentUser = null;
+    const appRoot = document.getElementById('appRoot');
+    const loginRoot = document.getElementById('loginRoot');
+    if(appRoot) appRoot.classList.add('hidden');
+    if(loginRoot) loginRoot.classList.remove('hidden');
+
+    if (typeof initLogin === 'function') initLogin();
+  }catch(e){
+    console.error(e);
+  }
+});
+</script>
+
+
+<script>
+function showSaleConfirmation(item){
+  const el = document.getElementById('saleConfirmation');
+  if(!el) return;
+  const price = item && (item.price ?? item.salePrice) ? (item.price ?? item.salePrice) : 0;
+  el.innerHTML = `✅ Pedido registrado: ${item.name} - ${clp(price)}`;
+  el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 2000);
+}
+
+function checkStockWarning(){
+  const el = document.getElementById('stockWarning');
+  if(!el || !state || !Array.isArray(state.inventory)) return;
+  const low = state.inventory.some(r => Number(r.min||0) > 0 && Number(r.stock||0) <= Number(r.min||0));
+  el.style.display = low ? 'block' : 'none';
+}
+</script>
+
+
+<script type="module">
+// ============================================================
+//  FIREBASE CONFIG
+// ============================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+  authDomain: "fonoprueba1-9614b.firebaseapp.com",
+  projectId: "fonoprueba1-9614b",
+  storageBucket: "fonoprueba1-9614b.firebasestorage.app",
+  messagingSenderId: "694367577729",
+  appId: "1:694367577729:web:4d72a990d4dc9dd7c04f80"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ============================================================
+//  Documento Firestore según usuario activo
+//  - Sucursales operativas: pos/conce  pos/la  pos/chi
+//  - Dueño: pos/dueno  (solo se actualiza al cerrar turno)
+// ============================================================
+function getDocKey(){
+  const user = state.currentUser;
+  if(!user) return null;
+  if(user.role === 'dueno') return 'dueno';
+  return user.branchId || 'conce';
+}
+
+// ============================================================
+//  Propagar cambios del dueño a la sucursal correspondiente
+//  Se llama cuando el dueño elimina/edita pedidos o facturas
+// ============================================================
+async function syncDuenoChangesToBranch(branchId){
+  if(!branchId || branchId === 'all') return;
+  try{
+    setSyncStatus('Sincronizando sucursal…', '#6b7280');
+    // Filtrar los datos del state actual del dueño para esa sucursal
+    const branchSnap = await getDoc(doc(db, 'pos', branchId));
+    if(!branchSnap.exists()) return;
+    const branchData = branchSnap.data();
+    // Actualizar orders e invoices de esa sucursal con los del state del dueño
+    branchData.orders        = (state.orders||[]).filter(o=>o.branchId===branchId);
+    branchData.invoices      = (state.invoices||[]).filter(i=>i.branchId===branchId);
+    branchData.shiftClosures = (state.shiftClosures||[]).filter(s=>s.branchId===branchId);
+    await setDoc(doc(db, 'pos', branchId), branchData);
+    setSyncStatus('✓ Sincronizado', '#16a34a');
+  }catch(e){
+    setSyncStatus('⚠ Error al sincronizar', '#dc2626');
+    console.error('syncDuenoChangesToBranch error:', e);
+  }
+}
+
+// ============================================================
+//  Indicador visual de sincronización
+// ============================================================
+function setSyncStatus(msg, color){
+  let el = document.getElementById('_syncStatus');
+  if(!el){
+    el = document.createElement('div');
+    el.id = '_syncStatus';
+    el.style.cssText = 'position:fixed;bottom:12px;right:12px;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;z-index:9999;transition:opacity 0.5s';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = color;
+  el.style.color = '#fff';
+  el.style.opacity = '1';
+  if(color === '#16a34a'){
+    setTimeout(()=>{ el.style.opacity = '0'; }, 2500);
+  }
+}
+
+// ============================================================
+//  GUARDAR estado de la sucursal activa
+// ============================================================
+let _saveTimer = null;
+async function savePersistentState(){
+  const key = getDocKey();
+  if(!key) return; // no hay sesión activa, no guardar
+
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async ()=>{
+    try{
+      setSyncStatus('Guardando…', '#f97316');
+      const clean = JSON.parse(JSON.stringify(state));
+      await setDoc(doc(db, 'pos', key), clean);
+      setSyncStatus('✓ Guardado', '#16a34a');
+    }catch(e){
+      setSyncStatus('⚠ Error al guardar', '#dc2626');
+      console.error('Firebase save error:', e);
+    }
+  }, 600);
+}
+
+// ============================================================
+//  GUARDAR resumen del dueño al cerrar turno
+//  Lee los datos de las 3 sucursales y los consolida
+// ============================================================
+async function syncDuenoOnShiftClose(){
+  try{
+    setSyncStatus('Sincronizando con dueño…', '#6b7280');
+
+    // Leer los 3 documentos de sucursales en paralelo
+    const [snapConce, snapLa, snapChi] = await Promise.all([
+      getDoc(doc(db, 'pos', 'conce')),
+      getDoc(doc(db, 'pos', 'la')),
+      getDoc(doc(db, 'pos', 'chi'))
+    ]);
+
+    // Consolidar orders, shiftClosures e invoices de todas las sucursales
+    const allOrders = [];
+    const allClosures = [];
+    const allInvoices = [];
+
+    for(const snap of [snapConce, snapLa, snapChi]){
+      if(!snap.exists()) continue;
+      const d = snap.data();
+      if(Array.isArray(d.orders))        allOrders.push(...d.orders);
+      if(Array.isArray(d.shiftClosures)) allClosures.push(...d.shiftClosures);
+      if(Array.isArray(d.invoices))      allInvoices.push(...d.invoices);
+    }
+
+    // Leer el estado actual del dueño para no pisarle sus propios datos
+    const duenoSnap = await getDoc(doc(db, 'pos', 'dueno'));
+    const duenoBase = duenoSnap.exists() ? duenoSnap.data() : {};
+
+    const duenoPayload = {
+      ...duenoBase,
+      orders:        allOrders,
+      shiftClosures: allClosures,
+      invoices:      allInvoices,
+      _lastSync:     new Date().toISOString()
+    };
+
+    await setDoc(doc(db, 'pos', 'dueno'), duenoPayload);
+    setSyncStatus('✓ Dueño actualizado', '#16a34a');
+  }catch(e){
+    setSyncStatus('⚠ Error al sincronizar dueño', '#dc2626');
+    console.error('syncDueno error:', e);
+  }
+}
+
+// ============================================================
+//  CARGAR estado según la sucursal del usuario que inicia sesión
+// ============================================================
+async function loadPersistentState(){
+  const key = getDocKey();
+  if(!key) return;
+
+  try{
+    setSyncStatus('Cargando datos…', '#6b7280');
+    const snap = await getDoc(doc(db, 'pos', key));
+    if(!snap.exists()){
+      setSyncStatus('Primera vez en esta sucursal', '#6b7280');
+      return;
+    }
+    const saved = snap.data();
+    if(!saved || typeof saved !== 'object') return;
+
+    const preserved = {
+      users:      Array.isArray(saved.users)      && saved.users.length      ? saved.users      : state.users,
+      branches:   Array.isArray(saved.branches)   && saved.branches.length   ? saved.branches   : state.branches,
+      categories: Array.isArray(saved.categories) && saved.categories.length ? saved.categories : state.categories,
+      couriers:   Array.isArray(saved.couriers)   && saved.couriers.length   ? saved.couriers   : state.couriers,
+      products:   Array.isArray(saved.products)   && saved.products.length   ? saved.products   : state.products
+    };
+
+    // Preservar el usuario que acaba de hacer login — no pisarlo con el guardado
+    const activeUser = state.currentUser;
+
+    Object.assign(state, saved);
+
+    state.currentUser = activeUser;
+    state.users      = preserved.users;
+    state.branches   = preserved.branches;
+    state.categories = preserved.categories;
+    state.couriers   = preserved.couriers;
+    state.products   = preserved.products;
+
+    if(!Array.isArray(state.inventory))     state.inventory = [];
+    if(!Array.isArray(state.orders))        state.orders = [];
+    if(!Array.isArray(state.invoices))      state.invoices = [];
+    if(!Array.isArray(state.shiftClosures)) state.shiftClosures = [];
+    if(!Array.isArray(state.audit))         state.audit = [];
+    if(!Array.isArray(state.cart))          state.cart = [];
+    if(!Array.isArray(state.invoiceCart))   state.invoiceCart = [];
+    if(!state.capitalIncreases  || typeof state.capitalIncreases  !== 'object') state.capitalIncreases = {};
+    if(!state.monthlyExpenses   || typeof state.monthlyExpenses   !== 'object') state.monthlyExpenses = {};
+    if(!state.fuelExpenseDrafts || typeof state.fuelExpenseDrafts !== 'object') state.fuelExpenseDrafts = {};
+    if(!state.cashCountedDrafts || typeof state.cashCountedDrafts !== 'object') state.cashCountedDrafts = {};
+
+    setSyncStatus('✓ Datos cargados', '#16a34a');
+  }catch(e){
+    setSyncStatus('⚠ Error al cargar', '#dc2626');
+    console.error('Firebase load error:', e);
+  }
+}
+
+// ============================================================
+//  Exponer funciones al scope global para que login() las use
+// ============================================================
+window._fbLoadState = loadPersistentState;
+window._fbSaveState = savePersistentState;
+window._fbSyncDueno = syncDuenoOnShiftClose;
+
+// ============================================================
+//  Parchear login para cargar datos de la sucursal correcta
+// ============================================================
+window.login = async function(){
+  // Validar credenciales antes de hacer nada
+  const userId = document.getElementById('loginUser').value;
+  const pass   = document.getElementById('loginPass').value;
+  const user   = state.users.find(u => String(u.id) === String(userId));
+  if(!user){ alert('Selecciona un usuario'); return; }
+  let defaultPass = user.role === 'dueno' ? '2812' : user.role === 'encargado' ? '1234' : '1111';
+  if(String(pass).trim() !== String(user.password || defaultPass)){ alert('Clave incorrecta'); return; }
+
+  // Ocultar login y mostrar app inmediatamente
+  const loginRoot = document.getElementById('loginRoot');
+  const appRoot   = document.getElementById('appRoot');
+  if(loginRoot){ loginRoot.style.display = 'none'; loginRoot.classList.add('hidden'); }
+  if(appRoot){   appRoot.style.display = '';       appRoot.classList.remove('hidden'); }
+
+  // Setear usuario y datos de sesion
+  state.currentUser = user;
+  state.selectedHistoryDate = state.activeDate;
+  state.selectedCourierDate = state.activeDate;
+  if(typeof syncHistoryDateToBranch === 'function') syncHistoryDateToBranch();
+  if(typeof syncCourierDateToBranch === 'function') syncCourierDateToBranch();
+  if(typeof syncCourierSelectionToBranch === 'function') syncCourierSelectionToBranch();
+  const k = typeof turnoDraftKey === 'function' ? turnoDraftKey() : '';
+  state.fuelExpense  = (state.fuelExpenseDrafts  && k) ? (state.fuelExpenseDrafts[k]  || '') : '';
+  state.cashCounted  = (state.cashCountedDrafts   && k) ? (state.cashCountedDrafts[k]   || '') : '';
+
+  // Cargar datos de Firebase para esta sucursal
+  // IMPORTANTE: guardamos el usuario actual ANTES de cargar Firebase
+  // porque Firebase puede traer un currentUser anterior guardado en el state
+  setSyncStatus('Cargando sesion...', '#6b7280');
+  const loggedInUser = user; // referencia al usuario que acaba de autenticarse
+  await loadPersistentState();
+
+  // Restaurar el usuario que inició sesión ahora (no el que traía Firebase)
+  state.currentUser = loggedInUser;
+  state.view = state.view || 'dashboard';
+
+  // Recalcular datos de sesión con el usuario correcto
+  if(typeof syncHistoryDateToBranch === 'function') syncHistoryDateToBranch();
+  if(typeof syncCourierDateToBranch === 'function') syncCourierDateToBranch();
+  if(typeof syncCourierSelectionToBranch === 'function') syncCourierSelectionToBranch();
+
+  // Renderizar con datos ya cargados y usuario correcto
+  try{ if(typeof render === 'function') render(); }catch(e){ console.error(e); }
+};
+
+// Parchear logout para limpiar correctamente la UI
+const _originalLogout = window.logout;
+window.logout = function(){
+  state.currentUser = null;
+  state.view = 'login';
+  const appRoot   = document.getElementById('appRoot');
+  const loginRoot = document.getElementById('loginRoot');
+  if(appRoot){   appRoot.style.display = 'none';  appRoot.classList.add('hidden'); }
+  if(loginRoot){ loginRoot.style.display = '';    loginRoot.classList.remove('hidden'); }
+  const pass = document.getElementById('loginPass');
+  if(pass) pass.value = '';
+  if(typeof initLogin === 'function') initLogin();
+};
+
+// ============================================================
+//  Parchear closeCurrentShift para sincronizar al dueño
+// ============================================================
+const _originalCloseShift = window.closeCurrentShift;
+window.closeCurrentShift = async function(){
+  _originalCloseShift.apply(this, arguments);
+  await savePersistentState();          // guarda la sucursal primero
+  await syncDuenoOnShiftClose();        // luego consolida en dueno
+};
+
+// ============================================================
+//  Envolver funciones clave para guardar automáticamente
+// ============================================================
+function wrapFunction(name){
+  // No re-envolver closeCurrentShift (ya lo parcheamos arriba)
+  if(name === 'closeCurrentShift') return;
+  const original = window[name];
+  if(typeof original !== 'function') return;
+  if(original.__wrapped_persist__) return;
+  const wrapped = function(){
+    const result = original.apply(this, arguments);
+    savePersistentState();
+    return result;
+  };
+  wrapped.__wrapped_persist__ = true;
+  window[name] = wrapped;
+}
+
+// ============================================================
+//  Inicio — solo carga si ya había sesión guardada en el state
+// ============================================================
+window.addEventListener('load', async function(){
+  // Si había una sesión persistida localmente, cargamos desde Firebase
+  if(state.currentUser){
+    await loadPersistentState();
+    try{ if(typeof render === 'function') render(); }catch(e){}
+  }
+
+  [
+    'render','saveOrder','deleteSale','openNewDay',
+    'saveProductInvoice','adjustInventory','addProductManual','addCategory',
+    'addUserManual','addCourierManual','toggleCourier','updateSalePrice',
+    'updateCost','logout'
+  ].forEach(wrapFunction);
+});
+
+window.addEventListener('beforeunload', function(){
+  savePersistentState();
+});
+</script>
+
+</body>
+</html>
