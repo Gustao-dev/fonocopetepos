@@ -78,6 +78,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
     <section id="view-usuarios" class="view hidden"></section>
     <section id="view-turno" class="view hidden"></section>
     <section id="view-admin" class="view hidden"></section>
+    <section id="view-auditoria" class="view hidden"></section>
   </main>
 </div>
 
@@ -85,6 +86,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 const state = {
   currentUser:null, view:'dashboard', turnOpen:true, activeDate:'12-03-2026', dashboardPeriod:'dia', dashboardFrom:'10-03-2026', dashboardTo:'12-03-2026', shiftName:'Turno noche', selectedHistoryDate:'12-03-2026', selectedCourierDate:'12-03-2026', selectedOwnerBranchId:'conce', invoices:[], invoiceCart:[], invoiceDetail:'', invoiceDateDraft:'', capitalIncreases:{}, fuelExpense:'', cashCounted:'', fuelExpenseDrafts:{}, cashCountedDrafts:{}, monthlyExpenses:{}, ownerViewMonthKey:'', facturasMonthKey:'', mayorMonthKey:'03-2026', mayorManualIva:'', mayorManualSueldos1:'', mayorManualSueldos2:'', mayorManualRelativos:'', mayorManualOtros:'',
   category:'Piscos', query:'', cart:[], pendingPromo:null, libroCourierFilter:'todos', _changingDrinkCartId:null,
+  topProductsSort:'qty', topProductsCategory:'todas',
   lastOrder:null, promoDrinkId:'', paymentMode:'efectivo', selectedCourierId:'', mixEf:0, mixTr:0, mixTb:0, audit:[], shiftClosures:[],
   users:[
     {id:'u1',name:'Dueño',role:'dueno',branchId:'conce',username:'dueno',password:'2812'},
@@ -333,8 +335,10 @@ function refreshMixedSummary(){
   }
 }
 function roleVisible(key){
-  if(key==='users' || key==='admin') return (state.currentUser.role==='dueno');
-  if(key==='mayor' || key==='capital' || key==='facturas') return (state.currentUser.role==='dueno' || state.currentUser.role==='encargado');
+  if(key==='usuarios') return (state.currentUser.role==='dueno' || state.currentUser.role==='encargado');
+  if(key==='admin') return (state.currentUser.role==='dueno');
+  if(key==='mayor' || key==='capital' || key==='facturas' || key==='auditoria') return (state.currentUser.role==='dueno' || state.currentUser.role==='encargado');
+  if(key==='dashboard') return (state.currentUser.role!=='operador');
   return true;
 }
 function allDates(){return [...new Set(branchOrders().map(o=>o.date))].sort((a,b)=>parseDMY(b)-parseDMY(a))}
@@ -382,11 +386,8 @@ function fmtDMY(dt){
 }
 function weekDatesFromActive(){
   const active=parseDMY(state.activeDate);
-  const day=(active.getDay()+6)%7; // lunes=0
-  const monday=new Date(active);
-  monday.setDate(active.getDate()-day);
   const arr=[];
-  for(let i=0;i<7;i++){ const x=new Date(monday); x.setDate(monday.getDate()+i); arr.push(fmtDMY(x)); }
+  for(let i=6;i>=0;i--){ const x=new Date(active); x.setDate(active.getDate()-i); arr.push(fmtDMY(x)); }
   return arr;
 }
 function monthDatesFromActive(){
@@ -462,6 +463,9 @@ function refreshTurnoSummary(){
     state.cashCountedDrafts[key] = val;
     state.cashCounted = val;
   }
+  // Persistir drafts de bencina/arqueo para que no se pierdan si se cierra sin cerrar turno
+  if(typeof window._fbSaveState === 'function') window._fbSaveState();
+
   const {summary, fuel, expectedCash, countedCash, cashDiff, realProfit} = currentShiftFinancials();
   const fuelEl = document.querySelector('[data-role="fuel-val"]');
   const expEl = document.querySelector('[data-role="expected-cash"]');
@@ -654,7 +658,7 @@ function render(){
     ? `${branch().name} · Fecha activa ${state.activeDate}<div style="margin-top:8px;max-width:320px"><label>Sucursal activa</label><select id="ownerBranchSelect" class="input">${state.branches.map(b=>`<option value="${b.id}" ${state.selectedOwnerBranchId===b.id?'selected':''}>${b.name}</option>`).join('')}<option value="all" ${state.selectedOwnerBranchId==='all'?'selected':''}>Todas</option></select></div>`
     : `${branch().name} · Fecha activa ${state.activeDate}`;
   const menu=document.getElementById('menu'); menu.innerHTML='';
-  [['dashboard','Dashboard'],['venta','Venta rápida'],['libro','Libro diario'],['mayor','Libro mayor'],['capital','Control capital'],['facturas','Facturas entrantes'],['repartidores','Repartidores'],['inventario','Inventario'],['productos','Productos'],['usuarios','Usuarios'],['turno','Turno'],['admin','Vista dueño']].forEach(([key,label])=>{if(!roleVisible(key)) return; const b=document.createElement('button'); b.textContent=label; b.className=state.view===key?'active':''; b.onclick=()=>{state.view=key; render()}; menu.appendChild(b)});
+  [['dashboard','Dashboard'],['venta','Venta rápida'],['libro','Libro diario'],['mayor','Libro mayor'],['capital','Control capital'],['facturas','Facturas entrantes'],['repartidores','Repartidores'],['inventario','Inventario'],['productos','Productos'],['usuarios','Usuarios'],['turno','Turno'],['admin','Vista dueño'],['auditoria','Historial cambios']].forEach(([key,label])=>{if(!roleVisible(key)) return; const b=document.createElement('button'); b.textContent=label; b.className=state.view===key?'active':''; b.onclick=()=>{state.view=key; render()}; menu.appendChild(b)});
   const todays=branchOrders().filter(o=>o.date===state.activeDate);
   document.getElementById('kpiSales').textContent=clp(todays.reduce((a,x)=>a+x.total,0));
   document.getElementById('kpiOrders').textContent=todays.length;
@@ -674,6 +678,7 @@ function render(){
   if(state.view==='usuarios') renderUsuarios();
   if(state.view==='turno') renderTurno();
   if(state.view==='admin') renderAdmin();
+  if(state.view==='auditoria') renderAuditoria();
 
   const ownerSel = document.getElementById('ownerBranchSelect');
   if(ownerSel){
@@ -707,7 +712,7 @@ function renderDashboard(){
   if(state.dashboardPeriod==='mes') periodLabel = `Mes de ${state.activeDate.slice(3)}`;
   if(state.dashboardPeriod==='fecha') periodLabel = `Fecha específica: ${state.dashboardFrom}`;
   if(state.dashboardPeriod==='rango') periodLabel = `Rango: ${state.dashboardFrom} a ${state.dashboardTo}`;
-  document.getElementById('view-dashboard').innerHTML=`${canEdit() && lowStock.length ? `<div class="card" style="margin-bottom:14px;border:2px solid #ef4444"><h3>⚠ Stock crítico</h3><div class="list">${lowStock.map(x=>`<div class="item between"><span>${x.name}</span><strong class="red">${x.stock} / mín ${x.min}</strong></div>`).join('')}</div></div>` : ''}<div class="card" style="margin-bottom:14px">
+  document.getElementById('view-dashboard').innerHTML=`${canEdit() && lowStock.length ? `<div class="card" style="margin-bottom:14px;border:2px solid #ef4444"><h3>⚠ Stock crítico</h3><div class="list">${lowStock.map(x=>`<div class="item between"><span>${x.name}</span><strong class="red">${x.stock} / mín ${x.min}</strong></div>`).join('')}</div></div>` : ''}${state.currentUser && state.currentUser.role==='dueno' ? `<div class="card" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><strong>Sincronización con sucursales</strong><div class="muted small" style="margin-top:4px">Actualiza los datos de las 3 sucursales en tiempo real.</div></div><button class="btn btn-primary" onclick="if(typeof syncDuenoOnShiftClose==='function'){this.disabled=true;this.textContent='Sincronizando…';syncDuenoOnShiftClose().then(()=>{this.textContent='✓ Sincronizado';setTimeout(()=>{this.disabled=false;this.textContent='🔄 Sincronizar ahora';},2000);})}">🔄 Sincronizar ahora</button></div>` : ''}<div class="card" style="margin-bottom:14px">
     <h3>Filtro de análisis</h3>
     <div class="row">
       <button class="btn ${state.dashboardPeriod==='dia'?'btn-primary':'btn-secondary'}" onclick="setDashboardPeriod('dia')">Día</button>
@@ -740,7 +745,90 @@ function renderDashboard(){
       ${state.currentUser.role!=='operador' ? `<div class="item between"><span>Ganancia total</span><strong>${clp(totalProfit)}</strong></div>` : ''}
       ${canEdit() ? `<div class="item between"><span>Valor inventario</span><strong>${clp(inventoryTotal)}</strong></div><div class="item between"><span>Efectivo que debe entregar el repartidor</span><strong>${clp(expectedCash)}</strong></div>` : ``}
     </div>
-  </div>`;
+  </div>
+  ${(()=>{
+    // Recopilar productos con qty, revenue y ganancia por item
+    const prodMap = {};
+    scoped.forEach(order=>{
+      (order.items||[]).forEach(item=>{
+        const key = item.name || item.productId;
+        // Buscar categoría desde state.products
+        const prod = state.products.find(p=>p.id===item.productId);
+        const cat = prod ? (prod.category||'Sin categoría') : (item.category||'Sin categoría');
+        if(!prodMap[key]) prodMap[key] = {name:key, category:cat, qty:0, revenue:0, profit:0};
+        const itemQty = Number(item.qty||0);
+        const itemRevenue = Number(item.salePrice||0) * itemQty;
+        // Calcular costo usando costAtSale congelado al momento de venta
+        const itemCost = (item.components||[{productId:item.productId,qty:1,costAtSale:0}])
+          .reduce((a,c)=>a + Number(c.costAtSale||0)*Number(c.qty||1)*itemQty, 0);
+        prodMap[key].qty += itemQty;
+        prodMap[key].revenue += itemRevenue;
+        prodMap[key].profit += itemRevenue - itemCost;
+      });
+    });
+
+    // Categorías únicas disponibles
+    const allCats = ['todas', ...new Set(Object.values(prodMap).map(p=>p.category).filter(Boolean))].sort((a,b)=>a==='todas'?-1:a.localeCompare(b));
+
+    // Aplicar filtro de categoría
+    if(!state.topProductsSort) state.topProductsSort = 'qty';
+    if(!state.topProductsCategory) state.topProductsCategory = 'todas';
+    let items = Object.values(prodMap);
+    if(state.topProductsCategory !== 'todas') items = items.filter(p=>p.category===state.topProductsCategory);
+
+    // Ordenar
+    if(state.topProductsSort==='qty')     items.sort((a,b)=>b.qty-a.qty);
+    if(state.topProductsSort==='revenue') items.sort((a,b)=>b.revenue-a.revenue);
+    if(state.topProductsSort==='profit')  items.sort((a,b)=>b.profit-a.profit);
+    const top = items.slice(0,10);
+    if(!top.length) return `<div class="card" style="margin-top:14px"><h3>Productos más vendidos</h3><div class="muted">No hay ventas para los filtros seleccionados.</div></div>`;
+
+    const maxVal = state.topProductsSort==='qty' ? (top[0].qty||1) : state.topProductsSort==='revenue' ? (top[0].revenue||1) : (top[0].profit||1);
+
+    return `<div class="card" style="margin-top:14px">
+      <div class="between" style="flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <h3 style="margin:0">Productos más vendidos <span class="muted small" style="font-weight:400;font-size:13px">— ${periodLabel}</span></h3>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+          <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">Ordenar por</label>
+          <select class="input" style="min-width:160px" onchange="state.topProductsSort=this.value; renderDashboard()">
+            <option value="qty"     ${state.topProductsSort==='qty'    ?'selected':''}>Cantidad vendida</option>
+            <option value="revenue" ${state.topProductsSort==='revenue'?'selected':''}>Ingresos (venta)</option>
+            <option value="profit"  ${state.topProductsSort==='profit' ?'selected':''}>Ganancia (venta−costo)</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">Categoría</label>
+          <select class="input" style="min-width:160px" onchange="state.topProductsCategory=this.value; renderDashboard()">
+            ${allCats.map(c=>`<option value="${c}" ${state.topProductsCategory===c?'selected':''}>${c==='todas'?'Todas las categorías':c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="list">
+        ${top.map((p,i)=>{
+          const val = state.topProductsSort==='qty' ? p.qty : state.topProductsSort==='revenue' ? p.revenue : p.profit;
+          const barPct = Math.round((val/maxVal)*100);
+          const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+          const barColor = state.topProductsSort==='profit' ? '#16a34a' : state.topProductsSort==='revenue' ? '#2563eb' : '#f97316';
+          return `<div class="item" style="display:block;padding:10px 0">
+            <div class="between" style="margin-bottom:4px;flex-wrap:wrap;gap:6px">
+              <span style="font-weight:700">${medal?medal+' ':''}${p.name}</span>
+              <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <span class="badge">${p.qty} ud.</span>
+                <span class="muted small">Venta: ${clp(p.revenue)}</span>
+                ${state.currentUser.role!=='operador'?`<strong style="color:#16a34a">Gan: ${clp(p.profit)}</strong>`:''}
+              </span>
+            </div>
+            <div style="background:var(--border);border-radius:999px;height:6px;overflow:hidden">
+              <div style="background:${barColor};height:6px;border-radius:999px;width:${barPct}%;transition:width 0.4s"></div>
+            </div>
+            <div class="muted small" style="margin-top:3px">${p.category}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  })()}`;
 }
 function renderVenta(){
   const lastBox = document.getElementById('lastOrderBox');
@@ -1078,11 +1166,11 @@ function renderMayor(){
         ${state.currentUser.role!=='operador' ? `<div class="card">
           <h3>Descuentos manuales</h3>` : `<div class="card"><h3>Resumen</h3><div class="muted">Acceso operador: sin ganancia ni descuentos.</div>`}
           <div class="grid2">
-            <div><label>IVA</label><input class="input" type="number" value="${iva}" oninput="state.mayorManualIva=this.value"></div>
-            <div><label>Sueldos 1</label><input class="input" type="number" value="${sueldos1}" oninput="state.mayorManualSueldos1=this.value"></div>
-            <div><label>Sueldos 2</label><input class="input" type="number" value="${sueldos2}" oninput="state.mayorManualSueldos2=this.value"></div>
-            <div><label>Gastos relativos</label><input class="input" type="number" value="${relativos}" oninput="state.mayorManualRelativos=this.value"></div>
-            <div><label>Otros gastos</label><input class="input" type="number" value="${otros}" oninput="state.mayorManualOtros=this.value"></div>
+            <div><label>IVA</label><input class="input" type="number" value="${iva}" oninput="state.mayorManualIva=this.value; if(typeof window._fbSaveState==='function') window._fbSaveState()"></div>
+            <div><label>Sueldos 1</label><input class="input" type="number" value="${sueldos1}" oninput="state.mayorManualSueldos1=this.value; if(typeof window._fbSaveState==='function') window._fbSaveState()"></div>
+            <div><label>Sueldos 2</label><input class="input" type="number" value="${sueldos2}" oninput="state.mayorManualSueldos2=this.value; if(typeof window._fbSaveState==='function') window._fbSaveState()"></div>
+            <div><label>Gastos relativos</label><input class="input" type="number" value="${relativos}" oninput="state.mayorManualRelativos=this.value; if(typeof window._fbSaveState==='function') window._fbSaveState()"></div>
+            <div><label>Otros gastos</label><input class="input" type="number" value="${otros}" oninput="state.mayorManualOtros=this.value; if(typeof window._fbSaveState==='function') window._fbSaveState()"></div>
           </div>
           ${state.currentUser.role!=='operador' ? `<div class="row" style="margin-top:10px"><button class="btn btn-primary" onclick="renderMayor()">Recalcular</button></div>` : ``}
         </div>
@@ -1156,21 +1244,27 @@ function renderCapital(){
   const monthKey = capitalMonthKey();
   const capKey = `${bid}|${monthKey}`;
   const cap = Number(state.capitalIncreases[capKey]||0);
+
+  // Resumen del mes seleccionado
   const monthOrders = monthOrdersForCapital(monthKey);
-  const totalVentas = monthOrders.reduce((a,o)=>a+Number(o.total||0),0);
-  const totalCosto = monthOrders.reduce((a,o)=>a+orderCost(o),0);
-  const totalFacturas = state.invoices.filter(x=>x.branchId===bid).reduce((a,x)=>a+Number(x.totalCost||0),0);
-  const monthClosures = state.shiftClosures
-    .filter(s=>{
-      if(s.branchId!==bid) return false;
-      const parts = String(s.date||'').split('-');
-      if(parts.length!==3) return false;
-      return `${parts[1]}-${parts[2]}` === monthKey;
-    });
-  const totalGasto = monthClosures.reduce((a,s)=>a+Number(s.fuelExpense||0),0);
-  const dineroEnCaja = monthClosures.reduce((a,s)=>a+Number(s.expectedCash||0),0);
-  const totalGanancia = totalVentas - totalCosto - totalGasto;
-  const cajaReposicion = Math.max(0, totalCosto - totalFacturas);
+  const totalVentas  = monthOrders.reduce((a,o)=>a+Number(o.total||0),0);
+  const totalCosto   = monthOrders.reduce((a,o)=>a+orderCost(o),0);
+  const monthClosures = state.shiftClosures.filter(s=>{
+    if(s.branchId!==bid) return false;
+    const p = String(s.date||'').split('-');
+    return p.length===3 && `${p[1]}-${p[2]}`===monthKey;
+  });
+  const totalGastoMes   = monthClosures.reduce((a,s)=>a+Number(s.fuelExpense||0),0);
+  const totalFacturasMes = state.invoices
+    .filter(x=>x.branchId===bid)
+    .filter(x=>{ const p=String(x.date||'').split('-'); return p.length===3 && `${p[1]}-${p[2]}`===monthKey; })
+    .reduce((a,x)=>a+Number(x.totalCost||0),0);
+  const totalGanancia = totalVentas - totalCosto - totalGastoMes;
+
+  // Acumulativos históricos (sin filtro de mes) — el dinero en caja no respeta meses calendario
+  const costoHistorico    = branchOrders().reduce((a,o)=>a+orderCost(o),0);
+  const facturasHistorico = state.invoices.filter(x=>x.branchId===bid).reduce((a,x)=>a+Number(x.totalCost||0),0);
+  const dineroEnCaja      = Math.max(0, costoHistorico - facturasHistorico);
 
   document.getElementById('view-capital').innerHTML = `
     <div class="card">
@@ -1188,9 +1282,17 @@ function renderCapital(){
         <div class="card"><strong>Ganancia acumulada mes</strong><div style="font-size:22px;margin-top:8px">${clp(totalGanancia)}</div></div>
       </div>
       <div class="grid3" style="margin-top:12px">
-        <div class="card"><strong>Dinero en caja</strong><div style="font-size:22px;margin-top:8px">${clp(dineroEnCaja)}</div><div class="muted small" style="margin-top:6px">Efectivo acumulado según cierres de turno.</div></div>
-        <div class="card"><strong>Monto que debe haber en caja</strong><div style="font-size:22px;margin-top:8px">${clp(cajaReposicion)}</div><div class="muted small" style="margin-top:6px">Costo vendido pendiente por reponer. Las facturas entrantes descuentan este monto porque ya se volvió a comprar.</div></div>
-        <div class="card"><strong>Capital total controlado</strong><div style="font-size:22px;margin-top:8px">${clp(inv + cap + totalFacturas)}</div></div>
+        <div class="card" style="display:none"><strong>Costo vendido (histórico)</strong><div style="font-size:22px;margin-top:8px">${clp(costoHistorico)}</div><div class="muted small" style="margin-top:4px">Costo total de todo lo vendido desde siempre.</div></div>
+        <div class="card" style="display:none"><strong>Facturas pagadas (histórico)</strong><div style="font-size:22px;margin-top:8px">${clp(facturasHistorico)}</div><div class="muted small" style="margin-top:4px">Total pagado a proveedores desde siempre.</div></div>
+        <div class="card" style="border:2px solid #16a34a">
+          <strong>Dinero en caja</strong>
+          <div style="font-size:26px;margin-top:8px;color:#16a34a;font-weight:800">${clp(dineroEnCaja)}</div>
+          <div class="muted small" style="margin-top:4px">Costo histórico − facturas históricas. Plata disponible para la próxima compra.</div>
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:12px">
+        <div class="card"><strong>Facturas del mes</strong><div style="font-size:22px;margin-top:8px">${clp(totalFacturasMes)}</div><div class="muted small" style="margin-top:4px">Solo facturas de ${monthNameFromKey(monthKey)}.</div></div>
+        <div class="card"><strong>Gastos bencina mes</strong><div style="font-size:22px;margin-top:8px">${clp(totalGastoMes)}</div></div>
       </div>
       ${canEdit() ? `
       <div class="card" style="margin-top:12px">
@@ -1210,6 +1312,9 @@ function saveCapitalIncrease(){
   const val = Number(document.getElementById('capitalInput')?.value||0);
   state.capitalIncreases[`${bid}|${monthKey}`] = val;
   renderCapital();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 
 
@@ -1311,8 +1416,9 @@ function clearInvoiceCart(){
   state.invoiceDetail = '';
   state.invoiceDateDraft = state.activeDate;
   renderFacturas();
-  if(typeof window._fbSaveState==='function') window._fbSaveState();
-  if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 
 function deleteInvoice(invoiceId){
@@ -1335,15 +1441,18 @@ function deleteInvoice(invoiceId){
     row.cost  = stockNuevo > 0 ? Math.max(0, Math.round(costoTotal / stockNuevo)) : 0;
     row.stock = stockNuevo;
   });
-  state.audit.push({action:'Factura eliminada', user:state.currentUser.name, branchId:bid, date:nowDateLocal(), time:nowTime(), detail:`Factura "${inv.detail}" del ${inv.date} eliminada`});
+  state.audit.push({id:uid(),action:'Factura eliminada', user:state.currentUser.name, branchId:bid, date:nowDateLocal(), time:nowTime(), detail:`Factura "${inv.detail}" del ${inv.date} eliminada`});
   state.invoices = state.invoices.filter(x=>x.id!==invoiceId);
   renderFacturas();
-  if(typeof window._fbSaveState==='function') window._fbSaveState();
-  if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-    syncDuenoChangesToBranch(bid);
-  } else if(typeof syncDuenoOnShiftClose==='function'){
-    syncDuenoOnShiftClose();
-  }
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(bid);
+      } else if(typeof syncDuenoOnShiftClose==='function'){
+        syncDuenoOnShiftClose();
+      }
+    });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 
 function openEditInvoice(invoiceId){
@@ -1371,9 +1480,11 @@ function openEditInvoice(invoiceId){
   state.invoiceDateDraft = inv.date || state.activeDate;
   // Eliminar la factura original
   state.invoices = state.invoices.filter(x=>x.id!==invoiceId);
-  state.audit.push({action:'Factura en edición', user:state.currentUser.name, branchId:bid, date:nowDateLocal(), time:nowTime(), detail:`Factura "${inv.detail}" cargada para edición`});
+  state.audit.push({id:uid(),action:'Factura en edición', user:state.currentUser.name, branchId:bid, date:nowDateLocal(), time:nowTime(), detail:`Factura "${inv.detail}" cargada para edición`});
   renderFacturas();
-  if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 
 function saveProductInvoice(){
@@ -1408,6 +1519,7 @@ function saveProductInvoice(){
     row.stock = stockTotal;
   });
 
+  state.audit.push({id:uid(),action:'Factura ingresada', user:state.currentUser ? state.currentUser.name : 'Desconocido', branchId:workingBranchId(), date:date, time:nowTime(), detail:`${detail} · ${items.map(i=>i.qty+'x '+i.name+' ($'+i.unitCost+')').join(', ')} · Total: ${clp(totalCost)}`});
   state.invoices.unshift({
     id:uid(),
     branchId:workingBranchId(),
@@ -1423,8 +1535,15 @@ function saveProductInvoice(){
   state.invoiceDetail = '';
   state.invoiceDateDraft = state.activeDate;
   renderFacturas();
-  if(typeof window._fbSaveState==='function') window._fbSaveState();
-  if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(workingBranchId());
+      } else if(typeof syncDuenoOnShiftClose==='function'){
+        syncDuenoOnShiftClose();
+      }
+    });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 
 function renderRepartidores(){
@@ -1498,10 +1617,42 @@ function renderProductos(){
   document.getElementById('view-productos').innerHTML=`${editor}<div class="card" style="margin-top:14px"><h3>Productos cargados</h3><div class="list">${state.products.filter(p=>p.active && isProductAvailableForBranch(p, workingBranchId())).map(p=>{const row=inventoryRow(p.id,workingBranchId()) || {cost:0}; return `<div class="item between"><div><div style="font-weight:700">${p.name}</div><div class="muted small">${p.category} · ${p.type}</div></div><div style="min-width:190px"><label>Precio venta</label><input class="input" type="number" value="${p.salePrice}" ${canEdit()?'':'disabled'} onchange="updateSalePrice('${p.id}',this.value)"></div><div style="min-width:190px"><label>Costo ${branch().city}</label><input class="input" type="number" value="${row.cost}" ${canEdit() && p.trackStock!==false?'':'disabled'} onchange="updateCost('${p.id}',this.value)"></div></div>`}).join('')}</div></div>`; const t=document.getElementById('newProductType'); const box=document.getElementById('promoBuilderBox'); if(t&&box){ const sync=()=>box.style.display=t.value==='promo'?'block':'none'; t.onchange=sync; sync(); }
 }
 function renderUsuarios(){
-  if(state.currentUser.role!=='dueno'){
-    document.getElementById('view-usuarios').innerHTML = `<div class="card"><h3>Usuarios</h3><div class="muted">Solo el dueño puede crear o modificar usuarios.</div></div>`;
+  const role = state.currentUser.role;
+  const myId = String(state.currentUser.id);
+
+  // Encargado: solo ve y edita su propia contraseña
+  if(role === 'encargado'){
+    const me = state.users.find(u=>String(u.id)===myId);
+    if(!me){ document.getElementById('view-usuarios').innerHTML=`<div class="card"><div class="muted">Usuario no encontrado.</div></div>`; return; }
+    document.getElementById('view-usuarios').innerHTML=`
+      <div class="card" style="max-width:400px">
+        <h3>Cambiar mi contraseña</h3>
+        <div class="muted small" style="margin-bottom:12px">Ingresa tu nueva contraseña. El dueño podrá verla en el panel de usuarios.</div>
+        <label>Nueva contraseña</label>
+        <input id="myPassInput" class="input" type="password" placeholder="Nueva clave" autocomplete="new-password">
+        <label style="margin-top:10px">Confirmar contraseña</label>
+        <input id="myPassConfirm" class="input" type="password" placeholder="Repite la clave" autocomplete="new-password">
+        <button class="btn btn-primary" style="margin-top:14px" onclick="(function(){
+          const a=document.getElementById('myPassInput').value.trim();
+          const b=document.getElementById('myPassConfirm').value.trim();
+          if(!a) return alert('Ingresa una contraseña');
+          if(a!==b) return alert('Las contraseñas no coinciden');
+          if(a.length<3) return alert('La contraseña debe tener al menos 3 caracteres');
+          updateUserPassword('${me.id}',a);
+          alert('Contraseña actualizada correctamente');
+          document.getElementById('myPassInput').value='';
+          document.getElementById('myPassConfirm').value='';
+        })()">Guardar contraseña</button>
+      </div>`;
     return;
   }
+
+  // Dueño: panel completo con contraseñas visibles
+  if(role !== 'dueno'){
+    document.getElementById('view-usuarios').innerHTML = `<div class="card"><h3>Usuarios</h3><div class="muted">Solo el dueño puede gestionar usuarios.</div></div>`;
+    return;
+  }
+
   document.getElementById('view-usuarios').innerHTML = `<div class="grid2">
     <div class="card">
       <h3>Agregar usuario</h3>
@@ -1515,7 +1666,7 @@ function renderUsuarios(){
       <button class="btn btn-secondary" style="margin-top:10px" onclick="addCourierManual()">Agregar repartidor</button>
     </div>
     <div class="card"><h3>Usuarios y repartidores</h3><div class="list">
-      ${state.users.map(u=>`<div class="item" style="display:block"><div class="between"><div><div style="font-weight:700">${u.name}</div><div class="muted small">${u.role} · ${state.branches.find(b=>b.id===u.branchId)?.name||u.branchId}</div></div><div class="badge">${u.username}</div></div><div class="row" style="margin-top:8px"><div style="flex:1"><label>Clave</label><input class="input" type="password" value="${u.password||''}" oninput="updateUserPassword('${u.id}',this.value)"></div></div></div>`).join('')}
+      ${state.users.map(u=>`<div class="item" style="display:block"><div class="between"><div><div style="font-weight:700">${u.name}</div><div class="muted small">${u.role} · ${state.branches.find(b=>b.id===u.branchId)?.name||u.branchId}</div></div><div class="badge">${u.username}</div></div><div class="row" style="margin-top:8px;align-items:center;gap:8px"><div style="flex:1"><label>Clave</label><div style="display:flex;gap:6px;align-items:center"><input class="input" id="pw_${u.id}" type="text" value="${u.password||''}" style="flex:1" oninput="updateUserPassword('${u.id}',this.value)"><button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="(function(el){el.type=el.type==='text'?'password':'text'})(document.getElementById('pw_${u.id}'))">👁</button></div></div></div></div>`).join('')}
       ${state.couriers.map(c=>`<div class="item between"><div><div style="font-weight:700">${c.name}</div><div class="muted small">Repartidor · ${state.branches.find(b=>b.id===c.branchId)?.name||c.branchId}</div></div><button class="btn btn-secondary" onclick="toggleCourier('${c.id}')">${c.active?'Desactivar':'Activar'}</button></div>`).join('')}
     </div></div>
   </div>`;
@@ -1556,7 +1707,7 @@ function renderUsuarios(){
       <div class="card">
         <h3>Nuevo día</h3>
         <label>Fecha nueva</label>
-        <input id="newDayInput" class="input" placeholder="Ej: 13-03-2026">
+        <input id="newDayInput" class="input" type="date" style="cursor:pointer">
         <button class="btn btn-primary" style="margin-top:10px" onclick="openNewDay()">Abrir nuevo día</button>
         <div class="muted small" style="margin-top:8px">Al abrir nuevo día, cambia la fecha activa y mantiene el historial completo.</div>
       </div>
@@ -1578,7 +1729,108 @@ function renderUsuarios(){
   const cc = document.getElementById('cashCountedInput');
   if(fe) fe.oninput = ()=>refreshTurnoSummary();
   if(cc) cc.oninput = ()=>refreshTurnoSummary();
+  // Pre-cargar el calendario con el día siguiente a la fecha activa
+  const ndInput = document.getElementById('newDayInput');
+  if(ndInput){
+    const parts = (state.activeDate||'').split('-');
+    if(parts.length===3){
+      const d = new Date(Number(parts[2]), Number(parts[1])-1, Number(parts[0])+1);
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth()+1).padStart(2,'0');
+      const dd   = String(d.getDate()).padStart(2,'0');
+      ndInput.value = `${yyyy}-${mm}-${dd}`;
+    }
+  }
 }
+function renderAuditoria(){
+  const isDueno = state.currentUser && state.currentUser.role === 'dueno';
+  const allRows = (state.audit || []).slice().reverse(); // más recientes primero
+
+  // Filtros disponibles en state
+  if(!state.auditFilterAction) state.auditFilterAction = 'todos';
+  if(!state.auditFilterBranch) state.auditFilterBranch = 'todos';
+
+  // Acciones únicas para el filtro
+  const actions = ['todos', ...new Set(allRows.map(r => r.action))];
+
+  // Filtrar por acción
+  let rows = state.auditFilterAction === 'todos'
+    ? allRows
+    : allRows.filter(r => r.action === state.auditFilterAction);
+
+  // Filtrar por sucursal (solo dueño)
+  if(isDueno && state.auditFilterBranch !== 'todos'){
+    rows = rows.filter(r => r.branchId === state.auditFilterBranch);
+  } else if(!isDueno){
+    // Encargado solo ve su sucursal
+    rows = rows.filter(r => !r.branchId || r.branchId === workingBranchId());
+  }
+
+  // Colores por tipo de acción
+  function badgeColor(action){
+    if(action.includes('eliminad')) return '#dc2626';
+    if(action.includes('edición') || action.includes('editado')) return '#f97316';
+    if(action.includes('registrado') || action.includes('ingresada')) return '#16a34a';
+    if(action.includes('inventario')) return '#2563eb';
+    if(action.includes('turno') || action.includes('Turno')) return '#7c3aed';
+    return '#6b7280';
+  }
+
+  function branchName(bid){
+    const b = state.branches.find(x=>x.id===bid);
+    return b ? b.name : (bid || '');
+  }
+
+  const branchFilter = isDueno ? `
+    <div>
+      <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">Sucursal</label>
+      <select class="input" onchange="state.auditFilterBranch=this.value; renderAuditoria()">
+        <option value="todos" ${state.auditFilterBranch==='todos'?'selected':''}>Todas</option>
+        ${state.branches.map(b=>`<option value="${b.id}" ${state.auditFilterBranch===b.id?'selected':''}>${b.name}</option>`).join('')}
+      </select>
+    </div>` : '';
+
+  document.getElementById('view-auditoria').innerHTML = `
+    <div class="card">
+      <div class="between" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <h3 style="margin:0">Historial de cambios</h3>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          ${isDueno ? `<button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="if(typeof syncDuenoOnShiftClose==='function'){this.disabled=true;this.textContent='Sincronizando…';syncDuenoOnShiftClose().then(()=>{renderAuditoria();this.disabled=false;this.textContent='🔄 Actualizar';});}">🔄 Actualizar</button>` : ''}
+          <span class="muted small">${rows.length} registros</span>
+        </div>
+      </div>
+
+      <div class="grid3" style="margin-bottom:14px">
+        <div>
+          <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px">Tipo de acción</label>
+          <select class="input" onchange="state.auditFilterAction=this.value; renderAuditoria()">
+            ${actions.map(a=>`<option value="${a}" ${state.auditFilterAction===a?'selected':''}>${a==='todos'?'Todas las acciones':a}</option>`).join('')}
+          </select>
+        </div>
+        ${branchFilter}
+        <div style="align-self:end">
+          <button class="btn btn-secondary" onclick="state.auditFilterAction='todos'; state.auditFilterBranch='todos'; renderAuditoria()">Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div class="list" style="max-height:600px;overflow:auto">
+        ${rows.length ? rows.map(r=>`
+          <div class="item" style="display:block;margin-bottom:8px">
+            <div class="between" style="flex-wrap:wrap;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="background:${badgeColor(r.action)};color:#fff;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">${r.action}</span>
+                <strong style="font-size:13px">${r.user||''}</strong>
+                ${isDueno && r.branchId ? `<span class="muted small">${branchName(r.branchId)}</span>` : ''}
+              </div>
+              <span class="muted small" style="white-space:nowrap">${r.date||''} ${r.time||''}</span>
+            </div>
+            <div class="muted small" style="margin-top:4px;font-size:12px">${r.detail||''}</div>
+          </div>`).join('')
+        : '<div class="muted">No hay registros con los filtros seleccionados.</div>'}
+      </div>
+    </div>`;
+}
+
 function renderAdmin(){
   const monthKey = ownerMonthKey();
   const branchesForOwner = state.branches.filter(b=>b.id!=='all');
@@ -1591,7 +1843,10 @@ function renderAdmin(){
     const inventario = inventoryValue(b.id);
     const facturas = monthInvoicesForBranch(b.id, monthKey).reduce((a,x)=>a+Number(x.totalCost||0),0);
     const cap = Number(state.capitalIncreases[`${b.id}|${monthKey}`]||0);
-    const caja = Math.max(0, (facturas + cap) - inventario);
+    // Dinero en caja = costo histórico total vendido − facturas históricas pagadas (acumulativo, sin filtro de mes)
+    const costoTotal    = state.orders.filter(o=>o.branchId===b.id).reduce((a,o)=>a+orderCost(o),0);
+    const facturasTotal = state.invoices.filter(x=>x.branchId===b.id).reduce((a,x)=>a+Number(x.totalCost||0),0);
+    const caja = Math.max(0, costoTotal - facturasTotal);
     return {id:b.id,name:b.name,ventas,costo,gasto,ganancia,inventario,facturas,cap,caja};
   });
 
@@ -1702,7 +1957,7 @@ function selectPromoDrinkAndAdd(drinkId){
         // Actualizar componentes: reemplazar la bebida anterior por la nueva
         const hieloProduct = state.products.find(x=>String(x.name||'').trim().toLowerCase()==='hielo');
         const hieloId = hieloProduct ? hieloProduct.id : null;
-        const baseProductId = state.pendingPromo.baseProductId || '';
+        const baseProductId = (state.pendingPromo && state.pendingPromo.baseProductId) ? state.pendingPromo.baseProductId : (cartItem.components.find(c=>c.productId!==drinkId && c.productId!==hieloId) || {}).productId || '';
         cartItem.components = [
           ...(baseProductId ? [{productId: baseProductId, qty:1}] : []),
           {productId: drinkId, qty:1},
@@ -1764,13 +2019,28 @@ function saveOrder(){if(!state.cart.length) return alert('No hay pedido'); if(!s
       });
       item.components = comps;
       applyStock(item.components, -item.qty);
-    }); state.orders.unshift({id:uid(),date:state.activeDate,branchId:workingBranchId(),branchName:branch().name,createdBy:state.currentUser.name,courierId:state.selectedCourierId,courierName:c.name,time:nowTime(),items:savedCart,subtotal:subtotal(),transbankFee:transbankFee(),total:total(),paymentMode:state.paymentMode,payments}); cancelOrder(); state.selectedHistoryDate=state.activeDate; state.view='libro'; render(); if(typeof window._fbSaveState==='function') window._fbSaveState(); if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose();}
-function deleteSale(orderId){ if(!confirm('¿Eliminar este pedido?')) return; const idx=state.orders.findIndex(o=>o.id===orderId); if(idx<0) return; const order=state.orders[idx]; order.items.forEach(item=>applyStock(item.components,item.qty)); state.audit.push({action:'Venta eliminada',user:state.currentUser.name,date:nowDateLocal(),time:nowTime(),detail:`Pedido ${order.id} eliminado por error de registro`}); state.orders.splice(idx,1); render(); if(typeof window._fbSaveState==='function') window._fbSaveState();
-  if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-    syncDuenoChangesToBranch(order.branchId);
-  } else if(typeof syncDuenoOnShiftClose==='function'){
-    syncDuenoOnShiftClose();
-  }
+    }); const newOrder = {id:uid(),date:state.activeDate,branchId:workingBranchId(),branchName:branch().name,createdBy:state.currentUser.name,courierId:state.selectedCourierId,courierName:c.name,time:nowTime(),items:savedCart,subtotal:subtotal(),transbankFee:transbankFee(),total:total(),paymentMode:state.paymentMode,payments};
+    state.orders.unshift(newOrder);
+    state.audit.push({id:uid(),action:'Pedido registrado', user:state.currentUser.name, branchId:workingBranchId(), date:state.activeDate, time:nowTime(), detail:`${savedCart.map(i=>i.qty+'x '+i.name).join(', ')} · ${clp(total())} · ${state.paymentMode} · ${c.name}`}); cancelOrder(); state.selectedHistoryDate=state.activeDate; state.view='libro'; render(); if(typeof window._fbSaveNow==='function') window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); }); else if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function deleteSale(orderId){
+  if(!confirm('¿Eliminar este pedido?')) return;
+  const idx=state.orders.findIndex(o=>o.id===orderId);
+  if(idx<0) return;
+  const order=state.orders[idx];
+  const orderBranchId = order.branchId;
+  order.items.forEach(item=>applyStock(item.components,item.qty));
+  state.audit.push({id:uid(),action:'Venta eliminada',user:state.currentUser.name,branchId:orderBranchId,date:nowDateLocal(),time:nowTime(),detail:`Pedido ${order.id} eliminado por error de registro`});
+  state.orders.splice(idx,1);
+  render();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(orderBranchId);
+      } else if(typeof syncDuenoOnShiftClose==='function'){
+        syncDuenoOnShiftClose();
+      }
+    });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 function openEditOrder(orderId){
   const order = state.orders.find(o=>o.id===orderId);
@@ -1804,18 +2074,61 @@ function openEditOrder(orderId){
   const idx = state.orders.findIndex(o=>o.id===orderId);
   if(idx >= 0) state.orders.splice(idx, 1);
 
-  state.audit.push({action:'Pedido en edición',user:state.currentUser.name,date:nowDateLocal(),time:nowTime(),detail:`Pedido ${orderId} devuelto al carrito para edición`});
+  state.audit.push({id:uid(),action:'Pedido en edición',user:state.currentUser.name,branchId:workingBranchId(),date:nowDateLocal(),time:nowTime(),detail:`Pedido ${orderId} devuelto al carrito para edición`});
 
   // 5. Ir a venta rápida con el carrito cargado
   state.view = 'venta';
   state.pendingPromo = null;
   state.promoDrinkId = '';
   render();
-  if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(order.branchId || workingBranchId());
+      } else if(typeof syncDuenoOnShiftClose==='function'){
+        syncDuenoOnShiftClose();
+      }
+    });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 
-function toggleTurn(){ if(state.turnOpen){ closeCurrentShift(); } else { state.turnOpen = true; if(typeof window._fbSaveState==='function') window._fbSaveState(); } render(); }
-function openNewDay(){const val=document.getElementById('newDayInput').value.trim(); if(!val) return alert('Ingresa una fecha'); state.activeDate=val; state.selectedHistoryDate=val; state.turnOpen=true; const k=`${workingBranchId()}|${val}`; state.fuelExpense = state.fuelExpenseDrafts[k] || ''; state.cashCounted = state.cashCountedDrafts[k] || ''; state.view='dashboard'; render(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function toggleTurn(){
+  if(state.turnOpen){
+    closeCurrentShift();
+    render();
+    if(typeof window._fbSaveNow==='function'){
+      window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
+    } else if(typeof window._fbSaveState==='function') window._fbSaveState();
+  } else {
+    state.turnOpen = true;
+    render();
+    if(typeof window._fbSaveState==='function') window._fbSaveState();
+  }
+}
+function openNewDay(){
+  const input=document.getElementById('newDayInput');
+  if(!input || !input.value) return alert('Selecciona una fecha');
+  // input type=date devuelve yyyy-mm-dd, convertir a dd-mm-yyyy
+  const [y,m,d] = input.value.split('-');
+  const val = `${d}-${m}-${y}`;
+  state.activeDate=val;
+  state.selectedHistoryDate=val;
+  state.turnOpen=true;
+  const k=`${workingBranchId()}|${val}`;
+  state.fuelExpense = state.fuelExpenseDrafts[k] || '';
+  state.cashCounted = state.cashCountedDrafts[k] || '';
+  // Actualizar mes activo en libro mayor y dashboard al cambiar de día
+  const newMonthKey = `${m}-${y}`;
+  state.mayorMonthKey   = newMonthKey;
+  state.dashboardFrom   = val;
+  state.dashboardTo     = val;
+  state.facturasMonthKey = newMonthKey;
+  state.view='dashboard';
+  render();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
+}
 function selectHistoryDate(d){state.selectedHistoryDate=d; renderLibro()}
 function applyLibroDate(){ const i=document.getElementById('libroDateInput'); if(!i) return; state.selectedHistoryDate=i.value.trim(); renderLibro(); }
 function changeLibroDate(delta){
@@ -1841,7 +2154,7 @@ function adjustInventory(){
   }
   row.min = Math.max(0,min);
   row.cost = Math.max(0,cost);
-  state.audit.push({
+  state.audit.push({id:uid(),
     action: 'Ajuste inventario',
     user: state.currentUser ? state.currentUser.name : 'Desconocido',
     branchId: workingBranchId(),
@@ -1850,15 +2163,27 @@ function adjustInventory(){
     detail: `${state.products.find(p=>p.id===productId)?.name||productId} · ${action} ${qty} · costo $${cost} · mín ${min}`
   });
   renderInventario();
-  if(typeof window._fbSaveState==='function') window._fbSaveState();
+  if(typeof window._fbSaveNow==='function'){
+    window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
+  } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 function addCategory(){if(!canEdit()) return; const n=document.getElementById('newCategoryName').value.trim(); if(!n) return; if(!state.categories.includes(n)) state.categories.push(n); renderProductos(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function addProductManual(){if(!canEdit()) return; const n=document.getElementById('newProductName').value.trim(); const c=document.getElementById('newProductCategory').value; const p=Number(document.getElementById('newProductPrice').value||0); const t=document.getElementById('newProductType').value; if(!n) return; const id=uid(); if(t==='promo'){ const base=document.getElementById('newProductBase').value; const size=document.getElementById('newProductDrinkSize').value; state.products.push({id:id,name:n,category:c,salePrice:p,type:'promo',active:true,baseProductId:base,drinkSize:size}); } else { state.products.push({id:id,name:n,category:c,salePrice:p,type:'simple',active:true}); state.inventory.push({branchId:workingBranchId(),productId:id,stock:0,cost:0,min:0}); } renderProductos(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
-function updateSalePrice(productId,value){if(!canEdit()) return; const p=state.products.find(x=>x.id===productId); if(!p) return; p.salePrice=Number(value||0)}
-function updateCost(productId,value){if(!canEdit()) return; let row=inventoryRow(productId,workingBranchId()); if(!row){row={branchId:workingBranchId(),productId,stock:0,cost:0,min:0}; state.inventory.push(row)} row.cost=Number(value||0)}
+function updateSalePrice(productId,value){if(!canEdit()) return; const p=state.products.find(x=>x.id===productId); if(!p) return; p.salePrice=Number(value||0); if(typeof window._fbSaveState==='function') window._fbSaveState();}
+function updateCost(productId,value){if(!canEdit()) return; let row=inventoryRow(productId,workingBranchId()); if(!row){row={branchId:workingBranchId(),productId,stock:0,cost:0,min:0}; state.inventory.push(row)} row.cost=Number(value||0); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function addUserManual(){const n=document.getElementById('nun').value.trim(); const r=document.getElementById('nur').value; const b=document.getElementById('nub').value; if(!n) return; state.users.push({id:uid(),name:n,role:r,branchId:b,username:n.toLowerCase().split(' ')[0],password:(r==='operador'?'1111':'1234')}); renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function addCourierManual(){const n=document.getElementById('ncn').value.trim(); const b=document.getElementById('ncb').value; if(!n) return; state.couriers.push({id:uid(),name:n,branchId:b,active:true}); renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
-function toggleCourier(id){const c=state.couriers.find(x=>x.id===id); if(c){c.active=!c.active; renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}} function updateUserPassword(id,value){const u=state.users.find(x=>String(x.id)===String(id)); if(!u || state.currentUser.role!=='dueno') return; u.password=String(value||'').trim();}
+function toggleCourier(id){const c=state.couriers.find(x=>x.id===id); if(c){c.active=!c.active; renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}} function updateUserPassword(id,value){
+  const u=state.users.find(x=>String(x.id)===String(id));
+  if(!u) return;
+  // El dueño puede cambiar cualquier clave; el encargado solo la suya propia
+  const isSelf = state.currentUser && String(state.currentUser.id)===String(id);
+  if(state.currentUser.role!=='dueno' && !isSelf) return;
+  const newPass = String(value||'').trim();
+  if(!newPass) return;
+  u.password=newPass;
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
+}
 
 
 function parseDMY(dmy){
@@ -2055,7 +2380,7 @@ function checkStockWarning(){
 //  FIREBASE CONFIG
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
@@ -2093,10 +2418,24 @@ async function syncDuenoChangesToBranch(branchId){
     const branchSnap = await getDoc(doc(db, 'pos', branchId));
     if(!branchSnap.exists()) return;
     const branchData = branchSnap.data();
-    // Actualizar orders e invoices de esa sucursal con los del state del dueño
+    // Actualizar orders, invoices, shiftClosures y audit de esa sucursal
     branchData.orders        = (state.orders||[]).filter(o=>o.branchId===branchId);
     branchData.invoices      = (state.invoices||[]).filter(i=>i.branchId===branchId);
     branchData.shiftClosures = (state.shiftClosures||[]).filter(s=>s.branchId===branchId);
+    // Propagar los registros de audit que pertenezcan a esta sucursal
+    const branchAudit = (state.audit||[]).filter(a=>!a.branchId || a.branchId===branchId);
+    const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
+    const auditMap = new Map();
+    for(const entry of [...existingAudit, ...branchAudit]){
+      const key = entry.id || (entry.user + '|' + entry.action + '|' + entry.date + '|' + entry.time);
+      if(!auditMap.has(key)) auditMap.set(key, entry);
+    }
+    branchData.audit = Array.from(auditMap.values())
+      .sort((a, b) => {
+        const da = (a.date||'').split('-').reverse().join('') + (a.time||'');
+        const db2 = (b.date||'').split('-').reverse().join('') + (b.time||'');
+        return db2.localeCompare(da);
+      });
     await setDoc(doc(db, 'pos', branchId), branchData);
     setSyncStatus('✓ Sincronizado', '#16a34a');
   }catch(e){
@@ -2129,6 +2468,30 @@ function setSyncStatus(msg, color){
 //  GUARDAR estado de la sucursal activa
 // ============================================================
 let _saveTimer = null;
+
+// Guardado inmediato sin debounce — para usar antes de sincronizar al dueño
+async function saveNow(){
+  const key = getDocKey();
+  if(!key) return;
+  clearTimeout(_saveTimer);
+  try{
+    setSyncStatus('Guardando…', '#f97316');
+    const clean = JSON.parse(JSON.stringify(state));
+    // Guardar contraseñas ofuscadas en base64 (no texto plano, pero recuperables por el dueño)
+    if(Array.isArray(clean.users)) clean.users = clean.users.map(u=>{
+      if(!u.password) return u;
+      return {...u, password: btoa(unescape(encodeURIComponent(u.password)))};
+    });
+    delete clean.topProductsSort;
+    delete clean.topProductsCategory;
+    await setDoc(doc(db, 'pos', key), clean);
+    setSyncStatus('✓ Guardado', '#16a34a');
+  }catch(e){
+    setSyncStatus('⚠ Error al guardar', '#dc2626');
+    console.error('Firebase save error:', e);
+  }
+}
+
 async function savePersistentState(){
   const key = getDocKey();
   if(!key) return; // no hay sesión activa, no guardar
@@ -2138,6 +2501,13 @@ async function savePersistentState(){
     try{
       setSyncStatus('Guardando…', '#f97316');
       const clean = JSON.parse(JSON.stringify(state));
+      // Guardar contraseñas ofuscadas en base64 (no texto plano, pero recuperables por el dueño)
+      if(Array.isArray(clean.users)) clean.users = clean.users.map(u=>{
+        if(!u.password) return u;
+        return {...u, password: btoa(unescape(encodeURIComponent(u.password)))};
+      });
+      delete clean.topProductsSort;
+      delete clean.topProductsCategory;
       await setDoc(doc(db, 'pos', key), clean);
       setSyncStatus('✓ Guardado', '#16a34a');
     }catch(e){
@@ -2155,6 +2525,9 @@ async function syncDuenoOnShiftClose(){
   try{
     setSyncStatus('Sincronizando con dueño…', '#6b7280');
 
+    // Guardar primero el estado actual de la sucursal sin debounce
+    await saveNow();
+
     // Leer los 3 documentos de sucursales en paralelo
     const [snapConce, snapLa, snapChi] = await Promise.all([
       getDoc(doc(db, 'pos', 'conce')),
@@ -2162,10 +2535,14 @@ async function syncDuenoOnShiftClose(){
       getDoc(doc(db, 'pos', 'chi'))
     ]);
 
-    // Consolidar orders, shiftClosures e invoices de todas las sucursales
+    // Consolidar orders, shiftClosures, invoices, audit, inventory y capital de todas las sucursales
     const allOrders = [];
     const allClosures = [];
     const allInvoices = [];
+    const allAudit = [];
+    const allInventory = [];
+    const allCapitalIncreases = {};
+    const branchSnaps = { conce: snapConce, la: snapLa, chi: snapChi };
 
     for(const snap of [snapConce, snapLa, snapChi]){
       if(!snap.exists()) continue;
@@ -2173,18 +2550,41 @@ async function syncDuenoOnShiftClose(){
       if(Array.isArray(d.orders))        allOrders.push(...d.orders);
       if(Array.isArray(d.shiftClosures)) allClosures.push(...d.shiftClosures);
       if(Array.isArray(d.invoices))      allInvoices.push(...d.invoices);
+      if(Array.isArray(d.audit))         allAudit.push(...d.audit);
+      if(Array.isArray(d.inventory))     allInventory.push(...d.inventory);
+      if(d.capitalIncreases && typeof d.capitalIncreases === 'object'){
+        Object.assign(allCapitalIncreases, d.capitalIncreases);
+      }
     }
 
     // Leer el estado actual del dueño para no pisarle sus propios datos
     const duenoSnap = await getDoc(doc(db, 'pos', 'dueno'));
     const duenoBase = duenoSnap.exists() ? duenoSnap.data() : {};
 
+    // Combinar el audit propio del dueño con el consolidado de sucursales,
+    // eliminando duplicados por id (si existe) o por user+action+time
+    const duenoAudit = Array.isArray(duenoBase.audit) ? duenoBase.audit : [];
+    const auditMap = new Map();
+    for(const entry of [...allAudit, ...duenoAudit]){
+      const key = entry.id || (entry.user + '|' + entry.action + '|' + entry.date + '|' + entry.time);
+      if(!auditMap.has(key)) auditMap.set(key, entry);
+    }
+    const mergedAudit = Array.from(auditMap.values())
+      .sort((a, b) => {
+        const da = (a.date||'').split('-').reverse().join('') + (a.time||'');
+        const db2 = (b.date||'').split('-').reverse().join('') + (b.time||'');
+        return db2.localeCompare(da);
+      });
+
     const duenoPayload = {
       ...duenoBase,
-      orders:        allOrders,
-      shiftClosures: allClosures,
-      invoices:      allInvoices,
-      _lastSync:     new Date().toISOString()
+      orders:           allOrders,
+      shiftClosures:    allClosures,
+      invoices:         allInvoices,
+      audit:            mergedAudit,
+      inventory:        allInventory,
+      capitalIncreases: allCapitalIncreases,
+      _lastSync:        new Date().toISOString()
     };
 
     await setDoc(doc(db, 'pos', 'dueno'), duenoPayload);
@@ -2213,7 +2613,25 @@ async function loadPersistentState(){
     if(!saved || typeof saved !== 'object') return;
 
     const preserved = {
-      users:      Array.isArray(saved.users)      && saved.users.length      ? saved.users      : state.users,
+      // Restaurar usuarios desde Firebase decodificando contraseñas base64
+      users: (()=>{
+        const fromFirebase = Array.isArray(saved.users) && saved.users.length ? saved.users : [];
+        const decoded = fromFirebase.map(fbUser => {
+          // Decodificar contraseña base64 si existe en Firebase
+          let pw = '';
+          if(fbUser.password){
+            try{ pw = decodeURIComponent(escape(atob(fbUser.password))); }
+            catch(e){ pw = fbUser.password; } // fallback si no es base64
+          }
+          // Si no hay en Firebase, usar contraseña del state hardcodeado
+          if(!pw){
+            const localUser = state.users.find(u => String(u.id) === String(fbUser.id));
+            pw = localUser ? localUser.password : '';
+          }
+          return {...fbUser, password: pw};
+        });
+        return decoded.length ? decoded : state.users;
+      })(),
       branches:   Array.isArray(saved.branches)   && saved.branches.length   ? saved.branches   : state.branches,
       categories: Array.isArray(saved.categories) && saved.categories.length ? saved.categories : state.categories,
       couriers:   Array.isArray(saved.couriers)   && saved.couriers.length   ? saved.couriers   : state.couriers,
@@ -2243,6 +2661,9 @@ async function loadPersistentState(){
     if(!state.monthlyExpenses   || typeof state.monthlyExpenses   !== 'object') state.monthlyExpenses = {};
     if(!state.fuelExpenseDrafts || typeof state.fuelExpenseDrafts !== 'object') state.fuelExpenseDrafts = {};
     if(!state.cashCountedDrafts || typeof state.cashCountedDrafts !== 'object') state.cashCountedDrafts = {};
+    // Resetear siempre filtros de UI — no deben persistirse entre sesiones
+    state.topProductsSort     = 'qty';
+    state.topProductsCategory = 'todas';
 
     setSyncStatus('✓ Datos cargados', '#16a34a');
   }catch(e){
@@ -2252,10 +2673,74 @@ async function loadPersistentState(){
 }
 
 // ============================================================
+//  LISTENER EN TIEMPO REAL — sincroniza fecha activa
+//  entre todos los usuarios de la misma sucursal
+// ============================================================
+let _branchUnsubscribe = null;
+
+// Devuelve la fecha de hoy en formato dd-mm-yyyy
+function todayDMY(){
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2,'0');
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const y = now.getFullYear();
+  return `${d}-${m}-${y}`;
+}
+
+function startBranchListener(){
+  // Cancelar listener anterior si existe
+  if(_branchUnsubscribe){ _branchUnsubscribe(); _branchUnsubscribe = null; }
+
+  const key = getDocKey();
+  // El dueño no necesita listener de sucursal — él ve todo consolidado
+  if(!key || key === 'dueno') return;
+
+  _branchUnsubscribe = onSnapshot(doc(db, 'pos', key), (snap)=>{
+    if(!snap.exists() || !state.currentUser) return;
+    const remote = snap.data();
+    const hoy = todayDMY();
+    // Usar parseDMY para comparar fechas correctamente (string >= falla con formato dd-mm-yyyy)
+    const remoteDate = remote.activeDate && typeof parseDMY === 'function' ? parseDMY(remote.activeDate) : null;
+    const hoyDate   = typeof parseDMY === 'function' ? parseDMY(hoy) : null;
+    const remoteEsHoyOFuturo = remoteDate && hoyDate && remoteDate >= hoyDate;
+    const fechaEfectiva = (remote.activeDate && remoteEsHoyOFuturo) ? remote.activeDate : hoy;
+    // Solo sincronizar la fecha activa — turno y nombre son independientes por sesión
+    if(fechaEfectiva !== state.activeDate){
+      state.activeDate = fechaEfectiva;
+      state.selectedHistoryDate = fechaEfectiva;
+      state.selectedCourierDate = fechaEfectiva;
+      // Actualizar mes activo en libro mayor, facturas y dashboard
+      const parts = fechaEfectiva.split('-');
+      if(parts.length === 3){
+        const newMonthKey = `${parts[1]}-${parts[2]}`;
+        state.mayorMonthKey    = newMonthKey;
+        state.facturasMonthKey = newMonthKey;
+        state.dashboardFrom    = fechaEfectiva;
+        state.dashboardTo      = fechaEfectiva;
+      }
+      // Si corregimos la fecha (era antigua), guardar en Firebase para propagar a otros
+      if(fechaEfectiva === hoy && remote.activeDate !== hoy){
+        if(typeof window._fbSaveNow === 'function') window._fbSaveNow();
+      }
+      render();
+    }
+  }, (err)=>{ console.warn('Branch listener error:', err); });
+}
+
+function stopBranchListener(){
+  if(_branchUnsubscribe){ _branchUnsubscribe(); _branchUnsubscribe = null; }
+}
+
+window._fbStartListener = startBranchListener;
+window._fbStopListener  = stopBranchListener;
+window._todayDMY        = todayDMY;
+
+// ============================================================
 //  Exponer funciones al scope global para que login() las use
 // ============================================================
 window._fbLoadState = loadPersistentState;
 window._fbSaveState = savePersistentState;
+window._fbSaveNow = saveNow;
 window._fbSyncDueno = syncDuenoOnShiftClose;
 
 // ============================================================
@@ -2296,7 +2781,28 @@ window.login = async function(){
 
   // Restaurar el usuario que inició sesión ahora (no el que traía Firebase)
   state.currentUser = loggedInUser;
-  state.view = state.view || 'dashboard';
+
+  // Si la fecha guardada en Firebase es anterior a hoy, actualizar a hoy automáticamente
+  // y persistir el cambio para que el listener lo propague a otros usuarios conectados
+  const hoy = typeof todayDMY === 'function' ? todayDMY() : state.activeDate;
+  if(state.activeDate !== hoy){
+    state.activeDate = hoy;
+    state.selectedHistoryDate = hoy;
+    state.selectedCourierDate = hoy;
+    // Actualizar mes activo en libro mayor, facturas y dashboard
+    const hp = hoy.split('-');
+    if(hp.length === 3){
+      const newMonthKey = `${hp[1]}-${hp[2]}`;
+      state.mayorMonthKey    = newMonthKey;
+      state.facturasMonthKey = newMonthKey;
+      state.dashboardFrom    = hoy;
+      state.dashboardTo      = hoy;
+    }
+    // Guardar en Firebase para que el listener notifique a otros usuarios de esta sucursal
+    if(typeof window._fbSaveNow === 'function') window._fbSaveNow();
+  }
+  // Operador y encargado siempre abren en turno; dueño en dashboard
+  state.view = loggedInUser.role === 'operador' || loggedInUser.role === 'encargado' ? 'turno' : 'dashboard';
 
   // Recalcular datos de sesión con el usuario correcto
   if(typeof syncHistoryDateToBranch === 'function') syncHistoryDateToBranch();
@@ -2305,11 +2811,16 @@ window.login = async function(){
 
   // Renderizar con datos ya cargados y usuario correcto
   try{ if(typeof render === 'function') render(); }catch(e){ console.error(e); }
+
+  // Iniciar listener en tiempo real para sincronizar fecha/turno entre usuarios
+  if(typeof window._fbStartListener === 'function') window._fbStartListener();
 };
 
 // Parchear logout para limpiar correctamente la UI
 const _originalLogout = window.logout;
 window.logout = function(){
+  // Detener listener en tiempo real antes de cerrar sesión
+  if(typeof window._fbStopListener === 'function') window._fbStopListener();
   state.currentUser = null;
   state.view = 'login';
   const appRoot   = document.getElementById('appRoot');
@@ -2323,12 +2834,14 @@ window.logout = function(){
 
 // ============================================================
 //  Parchear closeCurrentShift para sincronizar al dueño
+//  (solo como respaldo — toggleTurn ya lo llama con saveNow)
 // ============================================================
 const _originalCloseShift = window.closeCurrentShift;
 window.closeCurrentShift = async function(){
   _originalCloseShift.apply(this, arguments);
-  await savePersistentState();          // guarda la sucursal primero
-  await syncDuenoOnShiftClose();        // luego consolida en dueno
+  // saveNow garantiza escritura inmediata antes de consolidar al dueño
+  await saveNow();
+  await syncDuenoOnShiftClose();
 };
 
 // ============================================================
