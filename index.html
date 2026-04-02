@@ -89,15 +89,15 @@ const state = {
   topProductsSort:'qty', topProductsCategory:'todas',
   lastOrder:null, promoDrinkId:'', paymentMode:'efectivo', selectedCourierId:'', mixEf:0, mixTr:0, mixTb:0, audit:[], shiftClosures:[],
   users:[
-    {id:'u_dueno',name:'Dueño',role:'dueno',branchId:'conce',username:'dueno'},
-    {id:'u_martin',name:'Martín Álvarez',role:'encargado',branchId:'conce',username:'martin'},
-    {id:'u_gustavo',name:'Gustavo Henriquez',role:'encargado',branchId:'conce',username:'gustavo'},
-    {id:'u_operador_conce',name:'Operador Conce',role:'operador',branchId:'conce',username:'operador'},
-    {id:'u_alexander',name:'Alexander Iturra',role:'encargado',branchId:'la',username:'alexander'},
-    {id:'u_encargado_chi',name:'Encargado Chillán',role:'encargado',branchId:'chi',username:'encargadochi'}
+    {id:'u1',name:'Dueño',role:'dueno',branchId:'conce',username:'dueno',password:'2812'},
+    {id:'u2',name:'Martín Álvarez',role:'encargado',branchId:'conce',username:'martin',password:'1234'},
+    {id:'u3',name:'Gustavo Henriquez',role:'encargado',branchId:'conce',username:'gustavo',password:'1234'},
+    {id:'u4',name:'Operador Conce',role:'operador',branchId:'conce',username:'operador',password:'1111'},
+    {id:'u5',name:'Alexander Iturra',role:'encargado',branchId:'la',username:'alexander',password:'1234'},
+    {id:'u6',name:'Encargado Chillán',role:'encargado',branchId:'chi',username:'encargadochi',password:'1234'}
   ,
-    {id:'u_operador_la',name:'Operador LA',role:'operador',branchId:'la',username:'operadorla'},
-    {id:'u_operador_chi',name:'Operador Chillán',role:'operador',branchId:'chi',username:'operadorchi'}],
+    {id:'u_op_la',name:'Operador LA',role:'operador',branchId:'la',username:'operadorla',password:'1111'},
+    {id:'u_op_chi',name:'Operador Chillán',role:'operador',branchId:'chi',username:'operadorchi',password:'1111'}],
   branches:[
     {id:'conce',name:'Fonocopete Concepción',city:'Concepción'},
     {id:'la',name:'Fonocopete Los Ángeles',city:'Los Ángeles'},
@@ -550,10 +550,11 @@ function login(){
   }
 
   let defaultPass = '';
-  // Las contraseñas viven en Firebase (pos/passwords), no en el código
-  // Este login básico solo se usa si el módulo Firebase no cargó aún
-  const savedPass = String(user.password || '');
-  if(!savedPass){ alert('Contraseña no cargada. Recarga la página e intenta de nuevo.'); return; }
+  if(user.role === 'dueno') defaultPass = '2812';
+  else if(user.role === 'encargado') defaultPass = '1234';
+  else defaultPass = '1111';
+
+  const savedPass = String(user.password || defaultPass);
   if(String(pass).trim() !== savedPass){
     alert('Clave incorrecta');
     return;
@@ -2163,32 +2164,14 @@ function adjustInventory(){
   });
   renderInventario();
   if(typeof window._fbSaveNow==='function'){
-    window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-        syncDuenoChangesToBranch(workingBranchId());
-      } else if(typeof syncDuenoOnShiftClose==='function'){
-        syncDuenoOnShiftClose();
-      }
-    });
+    window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
   } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 function addCategory(){if(!canEdit()) return; const n=document.getElementById('newCategoryName').value.trim(); if(!n) return; if(!state.categories.includes(n)) state.categories.push(n); renderProductos(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function addProductManual(){if(!canEdit()) return; const n=document.getElementById('newProductName').value.trim(); const c=document.getElementById('newProductCategory').value; const p=Number(document.getElementById('newProductPrice').value||0); const t=document.getElementById('newProductType').value; if(!n) return; const id=uid(); if(t==='promo'){ const base=document.getElementById('newProductBase').value; const size=document.getElementById('newProductDrinkSize').value; state.products.push({id:id,name:n,category:c,salePrice:p,type:'promo',active:true,baseProductId:base,drinkSize:size}); } else { state.products.push({id:id,name:n,category:c,salePrice:p,type:'simple',active:true}); state.inventory.push({branchId:workingBranchId(),productId:id,stock:0,cost:0,min:0}); } renderProductos(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function updateSalePrice(productId,value){if(!canEdit()) return; const p=state.products.find(x=>x.id===productId); if(!p) return; p.salePrice=Number(value||0); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function updateCost(productId,value){if(!canEdit()) return; let row=inventoryRow(productId,workingBranchId()); if(!row){row={branchId:workingBranchId(),productId,stock:0,cost:0,min:0}; state.inventory.push(row)} row.cost=Number(value||0); if(typeof window._fbSaveState==='function') window._fbSaveState();}
-function addUserManual(){
-  const n=document.getElementById('nun').value.trim();
-  const r=document.getElementById('nur').value;
-  const b=document.getElementById('nub').value;
-  if(!n) return;
-  const defaultPw = r==='operador' ? '1111' : '1234';
-  const newId = uid();
-  state.users.push({id:newId, name:n, role:r, branchId:b, username:n.toLowerCase().split(' ')[0], password:defaultPw});
-  renderUsuarios();
-  // Guardar usuario en doc principal y contraseña en pos/passwords
-  if(typeof window._fbSaveState==='function') window._fbSaveState();
-  if(typeof savePasswordsToFirebase==='function') savePasswordsToFirebase();
-}
+function addUserManual(){const n=document.getElementById('nun').value.trim(); const r=document.getElementById('nur').value; const b=document.getElementById('nub').value; if(!n) return; state.users.push({id:uid(),name:n,role:r,branchId:b,username:n.toLowerCase().split(' ')[0],password:(r==='operador'?'1111':'1234')}); renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function addCourierManual(){const n=document.getElementById('ncn').value.trim(); const b=document.getElementById('ncb').value; if(!n) return; state.couriers.push({id:uid(),name:n,branchId:b,active:true}); renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function toggleCourier(id){const c=state.couriers.find(x=>x.id===id); if(c){c.active=!c.active; renderUsuarios(); if(typeof window._fbSaveState==='function') window._fbSaveState();}} function updateUserPassword(id,value){
   const u=state.users.find(x=>String(x.id)===String(id));
@@ -2199,8 +2182,7 @@ function toggleCourier(id){const c=state.couriers.find(x=>x.id===id); if(c){c.ac
   const newPass = String(value||'').trim();
   if(!newPass) return;
   u.password=newPass;
-  // Guardar contraseña en documento separado pos/passwords (no en el doc principal)
-  if(typeof savePasswordsToFirebase === 'function') savePasswordsToFirebase();
+  if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 
 
@@ -2310,7 +2292,7 @@ function exportLibroMayorCSV(){
 <script>
 (function(){
  const costMap = {"beer_silver": 3500, "beer_cristal": 4140, "beer_royal": 4620, "beer_bud": 5000, "beer_heineken": 4980, "beer_corona": 5325, "beer_austral": 5400, "beer_kunstmann": 5400, "cig_americanos": 2100, "cig_pallmall_azul": 4900, "cig_pallmall_click": 4900, "cig_kent_manzana": 5400, "cig_kent_rosado": 5400, "cig_lucky_click": 6100, "cig_lucky_naranja": 6100, "cig_lucky_berries": 6100, "pisco_mistral": 6290, "pisco_alto": 5500, "pisco_manzana": 10900, "pisco_barrica": 10900, "pisco_40": 10900, "wh_blenders_manzana": 6800, "wh_blenders_miel": 6800, "wh_ballantines": 8000, "wh_jony_rojo": 11900, "wh_jony_negro": 25300, "wh_jack_manzana": 22900, "wh_jack_miel": 22900, "wh_jack_negro": 22900, "liq_ron_blanco": 4500, "liq_ron_havana": 6000, "liq_vodka_black": 5800, "liq_tequila": 11000, "liq_ramazzotti": 10000, "liq_jagger": 11000, "liq_absolut": 11500, "liq_bombay": 12500, "cock_mistral_ice": 7400, "cock_mistral_energy": 7400, "cock_capel_ice": 5340, "cock_pisco_sour": 3700, "cock_mango_sour": 3700, "cock_pina_colada": 4300, "cock_toffee": 3900, "cock_mojito": 0, "wine_gato": 3450, "wine_export": 3400, "wine_casillero": 4400, "wine_esp_moscato": 3500, "wine_esp_brut": 3500, "b1": 1600, "b2": 1600, "b3": 1600, "b4": 1600, "b5": 1600, "b6": 1600, "b7": 660, "b8": 2450, "b9": 2450, "b10": 2450, "b11": 2450, "b12": 1100, "b13": 1600, "b14": 1600, "rb1": 1300, "rb2": 1300, "rb3": 1300, "e1": 250, "e2": 1000, "e3": 2000, "e4": 1000, "e5": 350, "e6": 250, "e7": 0};
- // Las contraseñas viven en Firebase (pos/passwords), no en el código local
+ state.users.forEach(u=>{ if(!u.password) u.password = u.role==='dueno' ? '2812' : '1234'; });
  ['conce','la','chi'].forEach(branchId=>{
    state.products.forEach(p=>{
      if(p.trackStock===false || p.type==='promo') return;
@@ -2436,12 +2418,10 @@ async function syncDuenoChangesToBranch(branchId){
     const branchSnap = await getDoc(doc(db, 'pos', branchId));
     if(!branchSnap.exists()) return;
     const branchData = branchSnap.data();
-    // Actualizar orders, invoices, shiftClosures, inventory y audit de esa sucursal
+    // Actualizar orders, invoices, shiftClosures y audit de esa sucursal
     branchData.orders        = (state.orders||[]).filter(o=>o.branchId===branchId);
     branchData.invoices      = (state.invoices||[]).filter(i=>i.branchId===branchId);
     branchData.shiftClosures = (state.shiftClosures||[]).filter(s=>s.branchId===branchId);
-    branchData.inventory     = (state.inventory||[]).filter(r=>r.branchId===branchId);
-    branchData.products      = state.products || branchData.products;
     // Propagar los registros de audit que pertenezcan a esta sucursal
     const branchAudit = (state.audit||[]).filter(a=>!a.branchId || a.branchId===branchId);
     const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
@@ -2490,16 +2470,6 @@ function setSyncStatus(msg, color){
 let _saveTimer = null;
 
 // Guardado inmediato sin debounce — para usar antes de sincronizar al dueño
-async function savePasswordsToFirebase(){
-  // Guardar contraseñas en documento separado pos/passwords
-  // Solo se llama cuando hay cambios de contraseña
-  try{
-    const pwMap = {};
-    state.users.forEach(u=>{ if(u.id && u.password) pwMap[u.id] = u.password; });
-    await setDoc(doc(db, 'pos', 'passwords'), pwMap);
-  }catch(e){ console.warn('Error guardando contraseñas:', e); }
-}
-
 async function saveNow(){
   const key = getDocKey();
   if(!key) return;
@@ -2507,8 +2477,11 @@ async function saveNow(){
   try{
     setSyncStatus('Guardando…', '#f97316');
     const clean = JSON.parse(JSON.stringify(state));
-    // Eliminar contraseñas del doc principal — viven en pos/passwords
-    if(Array.isArray(clean.users)) clean.users = clean.users.map(u=>{ const {password,...rest}=u; return rest; });
+    // Guardar contraseñas ofuscadas en base64 (no texto plano, pero recuperables por el dueño)
+    if(Array.isArray(clean.users)) clean.users = clean.users.map(u=>{
+      if(!u.password) return u;
+      return {...u, password: btoa(unescape(encodeURIComponent(u.password)))};
+    });
     delete clean.topProductsSort;
     delete clean.topProductsCategory;
     await setDoc(doc(db, 'pos', key), clean);
@@ -2528,8 +2501,11 @@ async function savePersistentState(){
     try{
       setSyncStatus('Guardando…', '#f97316');
       const clean = JSON.parse(JSON.stringify(state));
-      // Eliminar contraseñas del doc principal — viven en pos/passwords
-      if(Array.isArray(clean.users)) clean.users = clean.users.map(u=>{ const {password,...rest}=u; return rest; });
+      // Guardar contraseñas ofuscadas en base64 (no texto plano, pero recuperables por el dueño)
+      if(Array.isArray(clean.users)) clean.users = clean.users.map(u=>{
+        if(!u.password) return u;
+        return {...u, password: btoa(unescape(encodeURIComponent(u.password)))};
+      });
       delete clean.topProductsSort;
       delete clean.topProductsCategory;
       await setDoc(doc(db, 'pos', key), clean);
@@ -2637,17 +2613,24 @@ async function loadPersistentState(){
     if(!saved || typeof saved !== 'object') return;
 
     const preserved = {
-      // Usuarios desde Firebase — sin contraseñas (viven en pos/passwords)
-      // Preservar contraseñas ya cargadas en memory desde login
+      // Restaurar usuarios desde Firebase decodificando contraseñas base64
       users: (()=>{
         const fromFirebase = Array.isArray(saved.users) && saved.users.length ? saved.users : [];
-        if(!fromFirebase.length) return state.users;
-        return fromFirebase.map(fbUser => {
-          // Mantener la contraseña que ya está en memoria (cargada desde pos/passwords en login)
-          const inMemory = state.users.find(u => String(u.id) === String(fbUser.id));
-          const pw = (inMemory && inMemory.password) ? inMemory.password : (fbUser.password || '');
+        const decoded = fromFirebase.map(fbUser => {
+          // Decodificar contraseña base64 si existe en Firebase
+          let pw = '';
+          if(fbUser.password){
+            try{ pw = decodeURIComponent(escape(atob(fbUser.password))); }
+            catch(e){ pw = fbUser.password; } // fallback si no es base64
+          }
+          // Si no hay en Firebase, usar contraseña del state hardcodeado
+          if(!pw){
+            const localUser = state.users.find(u => String(u.id) === String(fbUser.id));
+            pw = localUser ? localUser.password : '';
+          }
           return {...fbUser, password: pw};
         });
+        return decoded.length ? decoded : state.users;
       })(),
       branches:   Array.isArray(saved.branches)   && saved.branches.length   ? saved.branches   : state.branches,
       categories: Array.isArray(saved.categories) && saved.categories.length ? saved.categories : state.categories,
@@ -2757,9 +2740,8 @@ window._todayDMY        = todayDMY;
 // ============================================================
 window._fbLoadState = loadPersistentState;
 window._fbSaveState = savePersistentState;
-window._fbSaveNow   = saveNow;
+window._fbSaveNow = saveNow;
 window._fbSyncDueno = syncDuenoOnShiftClose;
-window._fbSavePw    = savePasswordsToFirebase;
 
 // ============================================================
 //  Parchear login para cargar datos de la sucursal correcta
@@ -2770,22 +2752,8 @@ window.login = async function(){
   const pass   = document.getElementById('loginPass').value;
   const user   = state.users.find(u => String(u.id) === String(userId));
   if(!user){ alert('Selecciona un usuario'); return; }
-
-  // Cargar contraseñas desde Firebase (pos/passwords) antes de validar
-  try{
-    const pwSnap = await getDoc(doc(db, 'pos', 'passwords'));
-    if(pwSnap.exists()){
-      const pwData = pwSnap.data();
-      // Aplicar contraseñas a los usuarios en memoria
-      state.users.forEach(u => {
-        if(pwData[u.id]) u.password = pwData[u.id];
-      });
-    }
-  }catch(e){ console.warn('No se pudieron cargar contraseñas desde Firebase:', e); }
-
-  const savedPass = String(user.password || '').trim();
-  if(!savedPass){ alert('Este usuario no tiene contraseña configurada. Pide al dueño que la establezca.'); return; }
-  if(String(pass).trim() !== savedPass){ alert('Clave incorrecta'); return; }
+  let defaultPass = user.role === 'dueno' ? '2812' : user.role === 'encargado' ? '1234' : '1111';
+  if(String(pass).trim() !== String(user.password || defaultPass)){ alert('Clave incorrecta'); return; }
 
   // Ocultar login y mostrar app inmediatamente
   const loginRoot = document.getElementById('loginRoot');
