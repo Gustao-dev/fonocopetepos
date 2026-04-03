@@ -2401,7 +2401,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-   apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+ apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
   authDomain: "fonoprueba1-9614b.firebaseapp.com",
   projectId: "fonoprueba1-9614b",
   storageBucket: "fonoprueba1-9614b.firebasestorage.app",
@@ -2793,8 +2793,15 @@ window.login = async function(){
     if(pwSnap.exists()){
       const pwData = pwSnap.data();
       // Aplicar contraseñas a los usuarios en memoria
+      // Buscar contraseña por u.id primero, y por u.username como fallback
+      // (pos/passwords puede tener claves "u1","u2" o "u_dueno","u_martin" según versión)
       state.users.forEach(u => {
-        if(pwData[u.id]) u.password = pwData[u.id];
+        if(pwData[u.id]){
+          u.password = pwData[u.id];
+        } else {
+          const usernameKey = 'u_' + (u.username || '');
+          if(pwData[usernameKey]) u.password = pwData[usernameKey];
+        }
       });
     }
   }catch(e){ console.warn('No se pudieron cargar contraseñas desde Firebase:', e); }
