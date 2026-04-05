@@ -2401,12 +2401,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
- apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
   authDomain: "fonoprueba1-9614b.firebaseapp.com",
   projectId: "fonoprueba1-9614b",
   storageBucket: "fonoprueba1-9614b.firebasestorage.app",
   messagingSenderId: "694367577729",
   appId: "1:694367577729:web:4d72a990d4dc9dd7c04f80"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 };
 
 const app = initializeApp(firebaseConfig);
@@ -2432,38 +2443,80 @@ async function syncDuenoChangesToBranch(branchId){
   if(!branchId || branchId === 'all') return;
   try{
     setSyncStatus('Sincronizando sucursal…', '#6b7280');
-    // Filtrar los datos del state actual del dueño para esa sucursal
+
+    // Leer el documento actual de la sucursal desde Firebase
     const branchSnap = await getDoc(doc(db, 'pos', branchId));
-    // Si el documento no existe, inicializarlo con un objeto base vacío
+    // Si no existe, partir de un objeto vacío
     const branchData = branchSnap.exists() ? branchSnap.data() : {};
-    // Actualizar orders, invoices, shiftClosures, inventory y audit de esa sucursal
-    branchData.orders        = (state.orders||[]).filter(o=>o.branchId===branchId);
-    branchData.invoices      = (state.invoices||[]).filter(i=>i.branchId===branchId);
-    branchData.shiftClosures = (state.shiftClosures||[]).filter(s=>s.branchId===branchId);
-    branchData.inventory     = (state.inventory||[]).filter(r=>r.branchId===branchId);
-    branchData.products      = state.products || branchData.products;
-    // Propagar los registros de audit que pertenezcan a esta sucursal
-    const branchAudit = (state.audit||[]).filter(a=>!a.branchId || a.branchId===branchId);
+
+    // ── Datos que el dueño puede haber modificado ─────────────────────────────
+    // Inventario: tomar solo las filas de esta sucursal desde el state del dueño
+    const invDueno = (state.inventory||[]).filter(r => r.branchId === branchId);
+    if(invDueno.length > 0){
+      // Mezclar: conservar filas que ya existían en la sucursal y
+      // actualizar/agregar las que trae el dueño
+      const invMap = {};
+      // Primero cargar las que ya tenía la sucursal
+      ((branchData.inventory)||[]).forEach(r => {
+        invMap[r.productId] = r;
+      });
+      // Luego sobreescribir con las del dueño (tienen los cambios recientes)
+      invDueno.forEach(r => {
+        invMap[r.productId] = r;
+      });
+      branchData.inventory = Object.values(invMap);
+    }
+
+    // Productos: el dueño puede haber cambiado precios o agregado productos
+    if(Array.isArray(state.products) && state.products.length > 0){
+      branchData.products = state.products;
+    }
+
+    // Pedidos de esta sucursal
+    branchData.orders = (state.orders||[]).filter(o => o.branchId === branchId);
+
+    // Facturas de esta sucursal
+    branchData.invoices = (state.invoices||[]).filter(i => i.branchId === branchId);
+
+    // Cierres de turno de esta sucursal
+    branchData.shiftClosures = (state.shiftClosures||[]).filter(s => s.branchId === branchId);
+
+    // Capital de esta sucursal
+    if(state.capitalIncreases && typeof state.capitalIncreases === 'object'){
+      if(!branchData.capitalIncreases) branchData.capitalIncreases = {};
+      Object.keys(state.capitalIncreases).forEach(k => {
+        if(k.startsWith(branchId + '|')){
+          branchData.capitalIncreases[k] = state.capitalIncreases[k];
+        }
+      });
+    }
+
+    // Audit: mezclar sin duplicados usando id como clave única
+    const branchAudit = (state.audit||[]).filter(a => !a.branchId || a.branchId === branchId);
     const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
     const auditMap = new Map();
     for(const entry of [...existingAudit, ...branchAudit]){
       const key = entry.id || (entry.user + '|' + entry.action + '|' + entry.date + '|' + entry.time);
       if(!auditMap.has(key)) auditMap.set(key, entry);
     }
-    branchData.audit = Array.from(auditMap.values())
-      .sort((a, b) => {
-        const da = (a.date||'').split('-').reverse().join('') + (a.time||'');
-        const db2 = (b.date||'').split('-').reverse().join('') + (b.time||'');
-        return db2.localeCompare(da);
-      });
+    branchData.audit = Array.from(auditMap.values()).sort((a, b) => {
+      const da = (a.date||'').split('-').reverse().join('') + (a.time||'');
+      const db2 = (b.date||'').split('-').reverse().join('') + (b.time||'');
+      return db2.localeCompare(da);
+    });
+
     // Nunca guardar contraseñas en el doc de sucursal
     if(Array.isArray(branchData.users)){
-      branchData.users = branchData.users.map(u=>{ const {password,...rest}=u; return rest; });
+      branchData.users = branchData.users.map(u => { const {password,...rest} = u; return rest; });
     }
+
+    // Timestamp de sincronización
+    branchData._lastSync = new Date().toISOString();
+
     await setDoc(doc(db, 'pos', branchId), branchData);
-    setSyncStatus('✓ Sincronizado', '#16a34a');
+    setSyncStatus('✓ Sincronizado con ' + branchId, '#16a34a');
   }catch(e){
-    setSyncStatus('⚠ Error al sincronizar', '#dc2626');
+    setSyncStatus('⚠ Error al sincronizar sucursal', '#dc2626');
     console.error('syncDuenoChangesToBranch error:', e);
   }
 }
