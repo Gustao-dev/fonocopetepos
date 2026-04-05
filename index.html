@@ -2429,7 +2429,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
- apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+  apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
   authDomain: "fonoprueba1-9614b.firebaseapp.com",
   projectId: "fonoprueba1-9614b",
   storageBucket: "fonoprueba1-9614b.firebasestorage.app",
@@ -2783,12 +2783,10 @@ function startBranchListener(){
     if(!snap.exists() || !state.currentUser) return;
     const remote = snap.data();
     const hoy = todayDMY();
-    // Usar parseDMY para comparar fechas correctamente (string >= falla con formato dd-mm-yyyy)
-    const remoteDate = remote.activeDate && typeof parseDMY === 'function' ? parseDMY(remote.activeDate) : null;
-    const hoyDate   = typeof parseDMY === 'function' ? parseDMY(hoy) : null;
-    const remoteEsHoyOFuturo = remoteDate && hoyDate && remoteDate >= hoyDate;
-    const fechaEfectiva = (remote.activeDate && remoteEsHoyOFuturo) ? remote.activeDate : hoy;
-    // Solo sincronizar la fecha activa — turno y nombre son independientes por sesión
+    // Encargado y operador usan la fecha que venga de Firebase sin corrección.
+    // Solo si la fecha remota está vacía se usa hoy como fallback.
+    const fechaEfectiva = remote.activeDate || hoy;
+    // Solo actualizar si la fecha cambió respecto a lo que ya tenemos en pantalla
     if(fechaEfectiva !== state.activeDate){
       state.activeDate = fechaEfectiva;
       state.selectedHistoryDate = fechaEfectiva;
@@ -2801,10 +2799,6 @@ function startBranchListener(){
         state.facturasMonthKey = newMonthKey;
         state.dashboardFrom    = fechaEfectiva;
         state.dashboardTo      = fechaEfectiva;
-      }
-      // Si corregimos la fecha (era antigua), guardar en Firebase para propagar a otros
-      if(fechaEfectiva === hoy && remote.activeDate !== hoy){
-        if(typeof window._fbSaveNow === 'function') window._fbSaveNow();
       }
       render();
     }
@@ -2889,14 +2883,14 @@ window.login = async function(){
   // Restaurar el usuario que inició sesión ahora (no el que traía Firebase)
   state.currentUser = loggedInUser;
 
-  // Si la fecha guardada en Firebase es anterior a hoy, actualizar a hoy automáticamente
-  // y persistir el cambio para que el listener lo propague a otros usuarios conectados
+  // Solo el dueño fuerza la fecha a hoy al iniciar sesión.
+  // Encargado y operador pueden trabajar en la fecha que tengan activa en Firebase,
+  // lo que les permite abrir turno en fechas anteriores si es necesario.
   const hoy = typeof todayDMY === 'function' ? todayDMY() : state.activeDate;
-  if(state.activeDate !== hoy){
+  if(loggedInUser.role === 'dueno' && state.activeDate !== hoy){
     state.activeDate = hoy;
     state.selectedHistoryDate = hoy;
     state.selectedCourierDate = hoy;
-    // Actualizar mes activo en libro mayor, facturas y dashboard
     const hp = hoy.split('-');
     if(hp.length === 3){
       const newMonthKey = `${hp[1]}-${hp[2]}`;
@@ -2905,7 +2899,6 @@ window.login = async function(){
       state.dashboardFrom    = hoy;
       state.dashboardTo      = hoy;
     }
-    // Guardar en Firebase para que el listener notifique a otros usuarios de esta sucursal
     if(typeof window._fbSaveNow === 'function') window._fbSaveNow();
   }
   // Operador y encargado siempre abren en turno; dueño en dashboard
