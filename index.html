@@ -1467,8 +1467,8 @@ function deleteInvoice(invoiceId){
   renderFacturas();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-        syncDuenoChangesToBranch(bid);
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
+        window.syncDuenoChangesToBranch(bid);
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -1558,8 +1558,8 @@ function saveProductInvoice(){
   renderFacturas();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-        syncDuenoChangesToBranch(workingBranchId());
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
+        window.syncDuenoChangesToBranch(workingBranchId());
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -2055,8 +2055,8 @@ function deleteSale(orderId){
   render();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-        syncDuenoChangesToBranch(orderBranchId);
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
+        window.syncDuenoChangesToBranch(orderBranchId);
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -2104,8 +2104,8 @@ function openEditOrder(orderId){
   render();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-        syncDuenoChangesToBranch(order.branchId || workingBranchId());
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
+        window.syncDuenoChangesToBranch(order.branchId || workingBranchId());
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -2186,10 +2186,10 @@ function adjustInventory(){
   renderInventario();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
-        syncDuenoChangesToBranch(workingBranchId());
-      } else if(typeof syncDuenoOnShiftClose==='function'){
-        syncDuenoOnShiftClose();
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
+        window.syncDuenoChangesToBranch(workingBranchId());
+      } else if(typeof window._fbSyncDueno==='function'){
+        window._fbSyncDueno();
       }
     });
   } else if(typeof window._fbSaveState==='function') window._fbSaveState();
@@ -2423,7 +2423,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+   apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
   authDomain: "fonoprueba1-9614b.firebaseapp.com",
   projectId: "fonoprueba1-9614b",
   storageBucket: "fonoprueba1-9614b.firebasestorage.app",
@@ -2835,11 +2835,12 @@ window._todayDMY        = todayDMY;
 // ============================================================
 //  Exponer funciones al scope global para que login() las use
 // ============================================================
-window._fbLoadState = loadPersistentState;
-window._fbSaveState = savePersistentState;
-window._fbSaveNow   = saveNow;
-window._fbSyncDueno = syncDuenoOnShiftClose;
-window._fbSavePw    = savePasswordsToFirebase;
+window._fbLoadState          = loadPersistentState;
+window._fbSaveState          = savePersistentState;
+window._fbSaveNow            = saveNow;
+window._fbSyncDueno          = syncDuenoOnShiftClose;
+window._fbSavePw             = savePasswordsToFirebase;
+window.syncDuenoChangesToBranch = syncDuenoChangesToBranch;
 
 // ============================================================
 //  Parchear login para cargar datos de la sucursal correcta
