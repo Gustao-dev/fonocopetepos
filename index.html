@@ -541,23 +541,45 @@ function initLogin(){
 }
 
 function login(){
+  // Si el módulo Firebase ya reemplazó window.login, delegarle
+  // Esto evita el race condition cuando el usuario presiona Ingresar
+  // antes de que el módulo async termine de cargar
+  if(window.login !== login){
+    window.login();
+    return;
+  }
+  // Firebase aún no cargó — esperar hasta 5 segundos y reintentar
   const userId = document.getElementById('loginUser').value;
   const pass = document.getElementById('loginPass').value;
   const user = state.users.find(u=>String(u.id)===String(userId));
-  if(!user){
-    alert('Selecciona un usuario');
+  if(!user){ alert('Selecciona un usuario'); return; }
+
+  // Si Firebase no cargó todavía, esperar y reintentar automáticamente
+  const savedPass = String(user.password || '');
+  if(!savedPass){
+    const btn = document.querySelector('.btn-primary');
+    const originalText = btn ? btn.textContent : '';
+    if(btn){ btn.textContent = 'Cargando…'; btn.disabled = true; }
+    let attempts = 0;
+    const interval = setInterval(()=>{
+      attempts++;
+      // Verificar si Firebase ya instaló el parche
+      if(window.login !== login){
+        clearInterval(interval);
+        if(btn){ btn.textContent = originalText; btn.disabled = false; }
+        window.login();
+        return;
+      }
+      if(attempts >= 50){
+        clearInterval(interval);
+        if(btn){ btn.textContent = originalText; btn.disabled = false; }
+        alert('No se pudo conectar con Firebase. Verifica tu conexión a internet y recarga la página.');
+      }
+    }, 100);
     return;
   }
 
-  let defaultPass = '';
-  // Las contraseñas viven en Firebase (pos/passwords), no en el código
-  // Este login básico solo se usa si el módulo Firebase no cargó aún
-  const savedPass = String(user.password || '');
-  if(!savedPass){ alert('Contraseña no cargada. Recarga la página e intenta de nuevo.'); return; }
-  if(String(pass).trim() !== savedPass){
-    alert('Clave incorrecta');
-    return;
-  }
+  if(String(pass).trim() !== savedPass){ alert('Clave incorrecta'); return; }
 
   state.currentUser = user;
   state.selectedHistoryDate = state.activeDate; state.selectedCourierDate = state.activeDate; syncHistoryDateToBranch(); syncCourierDateToBranch(); syncCourierSelectionToBranch(); const k=turnoDraftKey(); state.fuelExpense = state.fuelExpenseDrafts[k] || ''; state.cashCounted = state.cashCountedDrafts[k] || '';
@@ -2401,23 +2423,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+    apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
   authDomain: "fonoprueba1-9614b.firebaseapp.com",
   projectId: "fonoprueba1-9614b",
   storageBucket: "fonoprueba1-9614b.firebasestorage.app",
   messagingSenderId: "694367577729",
   appId: "1:694367577729:web:4d72a990d4dc9dd7c04f80"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
 };
 
 const app = initializeApp(firebaseConfig);
