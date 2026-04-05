@@ -1552,6 +1552,12 @@ function saveProductInvoice(){
     createdAt: nowTime()
   });
 
+  // Capturar las filas modificadas por la factura ANTES de limpiar el carrito
+  const changedInvRows = items.map(item => {
+    const r = inventoryRow(item.productId, workingBranchId());
+    return r ? JSON.parse(JSON.stringify(r)) : null;
+  }).filter(Boolean);
+
   state.invoiceCart = [];
   state.invoiceDetail = '';
   state.invoiceDateDraft = state.activeDate;
@@ -1559,9 +1565,10 @@ function saveProductInvoice(){
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
       if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
-        window.syncDuenoChangesToBranch(workingBranchId());
-      } else if(typeof syncDuenoOnShiftClose==='function'){
-        syncDuenoOnShiftClose();
+        // Pasar todas las filas de inventario que modificó la factura
+        window.syncDuenoChangesToBranch(workingBranchId(), changedInvRows);
+      } else if(typeof window._fbSyncDueno==='function'){
+        window._fbSyncDueno();
       }
     });
   } else if(typeof window._fbSaveState==='function') window._fbSaveState();
@@ -2449,11 +2456,11 @@ function getDocKey(){
 //  Propagar cambios del dueño a la sucursal correspondiente
 //  Se llama cuando el dueño elimina/edita pedidos o facturas
 // ============================================================
-// Sincroniza UN cambio específico del dueño a la sucursal.
-// Recibe branchId y opcionalmente una fila de inventario modificada.
-// NUNCA reemplaza datos masivos desde el state del dueño — solo aplica
-// el cambio puntual encima del documento real de la sucursal en Firebase.
-async function syncDuenoChangesToBranch(branchId, changedInventoryRow){
+// Sincroniza cambios específicos del dueño a la sucursal.
+// changedRows puede ser una sola fila {productId,...} o un array de filas.
+// NUNCA reemplaza el inventario completo — solo aplica los cambios puntuales
+// encima del documento real de la sucursal en Firebase.
+async function syncDuenoChangesToBranch(branchId, changedRows){
   if(!branchId || branchId === 'all') return;
   try{
     setSyncStatus('Sincronizando sucursal…', '#6b7280');
@@ -2466,24 +2473,30 @@ async function syncDuenoChangesToBranch(branchId, changedInventoryRow){
     }
     const branchData = branchSnap.data();
 
-    // ── Aplicar solo la fila de inventario que cambió ────────────────────────
-    if(changedInventoryRow && changedInventoryRow.productId){
+    // ── Aplicar las filas de inventario que cambiaron ────────────────────────
+    // Normalizar: aceptar fila única o array de filas
+    const rowsToApply = changedRows
+      ? (Array.isArray(changedRows) ? changedRows : [changedRows])
+      : [];
+
+    if(rowsToApply.length > 0){
       const inv = Array.isArray(branchData.inventory) ? branchData.inventory : [];
-      const idx = inv.findIndex(r => r.productId === changedInventoryRow.productId);
-      if(idx >= 0){
-        // Actualizar la fila existente
-        inv[idx] = changedInventoryRow;
-      } else {
-        // Agregar fila nueva
-        inv.push(changedInventoryRow);
-      }
+      rowsToApply.forEach(changedRow => {
+        if(!changedRow || !changedRow.productId) return;
+        const idx = inv.findIndex(r => r.productId === changedRow.productId);
+        if(idx >= 0){
+          inv[idx] = changedRow;
+        } else {
+          inv.push(changedRow);
+        }
+      });
       branchData.inventory = inv;
     }
 
-    // ── Agregar el registro de auditoría del ajuste ──────────────────────────
-    const lastAuditEntry = (state.audit||[]).filter(a =>
-      a.branchId === branchId && a.action === 'Ajuste inventario'
-    ).slice(-1)[0];
+    // ── Agregar el último registro de auditoría relacionado ──────────────────
+    const lastAuditEntry = (state.audit||[]).slice().reverse().find(a =>
+      a.branchId === branchId
+    );
     if(lastAuditEntry){
       const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
       const alreadyExists = existingAudit.some(a => a.id === lastAuditEntry.id);
@@ -2492,11 +2505,14 @@ async function syncDuenoChangesToBranch(branchId, changedInventoryRow){
       }
     }
 
+    // ── Sincronizar también las facturas de esta sucursal ────────────────────
+    branchData.invoices = (state.invoices||[]).filter(i => i.branchId === branchId);
+
     // Timestamp de sincronización
     branchData._lastSync = new Date().toISOString();
 
     await setDoc(doc(db, 'pos', branchId), branchData);
-    setSyncStatus('✓ Inventario actualizado en ' + branchId, '#16a34a');
+    setSyncStatus('✓ Sincronizado con ' + branchId, '#16a34a');
   }catch(e){
     setSyncStatus('⚠ Error al sincronizar sucursal', '#dc2626');
     console.error('syncDuenoChangesToBranch error:', e);
