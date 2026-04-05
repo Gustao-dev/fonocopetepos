@@ -541,45 +541,23 @@ function initLogin(){
 }
 
 function login(){
-  // Si el módulo Firebase ya reemplazó window.login, delegarle
-  // Esto evita el race condition cuando el usuario presiona Ingresar
-  // antes de que el módulo async termine de cargar
-  if(window.login !== login){
-    window.login();
-    return;
-  }
-  // Firebase aún no cargó — esperar hasta 5 segundos y reintentar
   const userId = document.getElementById('loginUser').value;
   const pass = document.getElementById('loginPass').value;
   const user = state.users.find(u=>String(u.id)===String(userId));
-  if(!user){ alert('Selecciona un usuario'); return; }
-
-  // Si Firebase no cargó todavía, esperar y reintentar automáticamente
-  const savedPass = String(user.password || '');
-  if(!savedPass){
-    const btn = document.querySelector('.btn-primary');
-    const originalText = btn ? btn.textContent : '';
-    if(btn){ btn.textContent = 'Cargando…'; btn.disabled = true; }
-    let attempts = 0;
-    const interval = setInterval(()=>{
-      attempts++;
-      // Verificar si Firebase ya instaló el parche
-      if(window.login !== login){
-        clearInterval(interval);
-        if(btn){ btn.textContent = originalText; btn.disabled = false; }
-        window.login();
-        return;
-      }
-      if(attempts >= 50){
-        clearInterval(interval);
-        if(btn){ btn.textContent = originalText; btn.disabled = false; }
-        alert('No se pudo conectar con Firebase. Verifica tu conexión a internet y recarga la página.');
-      }
-    }, 100);
+  if(!user){
+    alert('Selecciona un usuario');
     return;
   }
 
-  if(String(pass).trim() !== savedPass){ alert('Clave incorrecta'); return; }
+  let defaultPass = '';
+  // Las contraseñas viven en Firebase (pos/passwords), no en el código
+  // Este login básico solo se usa si el módulo Firebase no cargó aún
+  const savedPass = String(user.password || '');
+  if(!savedPass){ alert('Contraseña no cargada. Recarga la página e intenta de nuevo.'); return; }
+  if(String(pass).trim() !== savedPass){
+    alert('Clave incorrecta');
+    return;
+  }
 
   state.currentUser = user;
   state.selectedHistoryDate = state.activeDate; state.selectedCourierDate = state.activeDate; syncHistoryDateToBranch(); syncCourierDateToBranch(); syncCourierSelectionToBranch(); const k=turnoDraftKey(); state.fuelExpense = state.fuelExpenseDrafts[k] || ''; state.cashCounted = state.cashCountedDrafts[k] || '';
@@ -1467,8 +1445,8 @@ function deleteInvoice(invoiceId){
   renderFacturas();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
-        window.syncDuenoChangesToBranch(bid);
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(bid);
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -1558,8 +1536,8 @@ function saveProductInvoice(){
   renderFacturas();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
-        window.syncDuenoChangesToBranch(workingBranchId());
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(workingBranchId());
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -2055,8 +2033,8 @@ function deleteSale(orderId){
   render();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
-        window.syncDuenoChangesToBranch(orderBranchId);
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(orderBranchId);
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -2104,8 +2082,8 @@ function openEditOrder(orderId){
   render();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
-        window.syncDuenoChangesToBranch(order.branchId || workingBranchId());
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(order.branchId || workingBranchId());
       } else if(typeof syncDuenoOnShiftClose==='function'){
         syncDuenoOnShiftClose();
       }
@@ -2186,10 +2164,10 @@ function adjustInventory(){
   renderInventario();
   if(typeof window._fbSaveNow==='function'){
     window._fbSaveNow().then(()=>{
-      if(state.currentUser && state.currentUser.role==='dueno' && typeof window.syncDuenoChangesToBranch==='function'){
-        window.syncDuenoChangesToBranch(workingBranchId());
-      } else if(typeof window._fbSyncDueno==='function'){
-        window._fbSyncDueno();
+      if(state.currentUser && state.currentUser.role==='dueno' && typeof syncDuenoChangesToBranch==='function'){
+        syncDuenoChangesToBranch(workingBranchId());
+      } else if(typeof syncDuenoOnShiftClose==='function'){
+        syncDuenoOnShiftClose();
       }
     });
   } else if(typeof window._fbSaveState==='function') window._fbSaveState();
@@ -2423,7 +2401,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-   apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+ apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
   authDomain: "fonoprueba1-9614b.firebaseapp.com",
   projectId: "fonoprueba1-9614b",
   storageBucket: "fonoprueba1-9614b.firebasestorage.app",
@@ -2454,80 +2432,38 @@ async function syncDuenoChangesToBranch(branchId){
   if(!branchId || branchId === 'all') return;
   try{
     setSyncStatus('Sincronizando sucursal…', '#6b7280');
-
-    // Leer el documento actual de la sucursal desde Firebase
+    // Filtrar los datos del state actual del dueño para esa sucursal
     const branchSnap = await getDoc(doc(db, 'pos', branchId));
-    // Si no existe, partir de un objeto vacío
+    // Si el documento no existe, inicializarlo con un objeto base vacío
     const branchData = branchSnap.exists() ? branchSnap.data() : {};
-
-    // ── Datos que el dueño puede haber modificado ─────────────────────────────
-    // Inventario: tomar solo las filas de esta sucursal desde el state del dueño
-    const invDueno = (state.inventory||[]).filter(r => r.branchId === branchId);
-    if(invDueno.length > 0){
-      // Mezclar: conservar filas que ya existían en la sucursal y
-      // actualizar/agregar las que trae el dueño
-      const invMap = {};
-      // Primero cargar las que ya tenía la sucursal
-      ((branchData.inventory)||[]).forEach(r => {
-        invMap[r.productId] = r;
-      });
-      // Luego sobreescribir con las del dueño (tienen los cambios recientes)
-      invDueno.forEach(r => {
-        invMap[r.productId] = r;
-      });
-      branchData.inventory = Object.values(invMap);
-    }
-
-    // Productos: el dueño puede haber cambiado precios o agregado productos
-    if(Array.isArray(state.products) && state.products.length > 0){
-      branchData.products = state.products;
-    }
-
-    // Pedidos de esta sucursal
-    branchData.orders = (state.orders||[]).filter(o => o.branchId === branchId);
-
-    // Facturas de esta sucursal
-    branchData.invoices = (state.invoices||[]).filter(i => i.branchId === branchId);
-
-    // Cierres de turno de esta sucursal
-    branchData.shiftClosures = (state.shiftClosures||[]).filter(s => s.branchId === branchId);
-
-    // Capital de esta sucursal
-    if(state.capitalIncreases && typeof state.capitalIncreases === 'object'){
-      if(!branchData.capitalIncreases) branchData.capitalIncreases = {};
-      Object.keys(state.capitalIncreases).forEach(k => {
-        if(k.startsWith(branchId + '|')){
-          branchData.capitalIncreases[k] = state.capitalIncreases[k];
-        }
-      });
-    }
-
-    // Audit: mezclar sin duplicados usando id como clave única
-    const branchAudit = (state.audit||[]).filter(a => !a.branchId || a.branchId === branchId);
+    // Actualizar orders, invoices, shiftClosures, inventory y audit de esa sucursal
+    branchData.orders        = (state.orders||[]).filter(o=>o.branchId===branchId);
+    branchData.invoices      = (state.invoices||[]).filter(i=>i.branchId===branchId);
+    branchData.shiftClosures = (state.shiftClosures||[]).filter(s=>s.branchId===branchId);
+    branchData.inventory     = (state.inventory||[]).filter(r=>r.branchId===branchId);
+    branchData.products      = state.products || branchData.products;
+    // Propagar los registros de audit que pertenezcan a esta sucursal
+    const branchAudit = (state.audit||[]).filter(a=>!a.branchId || a.branchId===branchId);
     const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
     const auditMap = new Map();
     for(const entry of [...existingAudit, ...branchAudit]){
       const key = entry.id || (entry.user + '|' + entry.action + '|' + entry.date + '|' + entry.time);
       if(!auditMap.has(key)) auditMap.set(key, entry);
     }
-    branchData.audit = Array.from(auditMap.values()).sort((a, b) => {
-      const da = (a.date||'').split('-').reverse().join('') + (a.time||'');
-      const db2 = (b.date||'').split('-').reverse().join('') + (b.time||'');
-      return db2.localeCompare(da);
-    });
-
+    branchData.audit = Array.from(auditMap.values())
+      .sort((a, b) => {
+        const da = (a.date||'').split('-').reverse().join('') + (a.time||'');
+        const db2 = (b.date||'').split('-').reverse().join('') + (b.time||'');
+        return db2.localeCompare(da);
+      });
     // Nunca guardar contraseñas en el doc de sucursal
     if(Array.isArray(branchData.users)){
-      branchData.users = branchData.users.map(u => { const {password,...rest} = u; return rest; });
+      branchData.users = branchData.users.map(u=>{ const {password,...rest}=u; return rest; });
     }
-
-    // Timestamp de sincronización
-    branchData._lastSync = new Date().toISOString();
-
     await setDoc(doc(db, 'pos', branchId), branchData);
-    setSyncStatus('✓ Sincronizado con ' + branchId, '#16a34a');
+    setSyncStatus('✓ Sincronizado', '#16a34a');
   }catch(e){
-    setSyncStatus('⚠ Error al sincronizar sucursal', '#dc2626');
+    setSyncStatus('⚠ Error al sincronizar', '#dc2626');
     console.error('syncDuenoChangesToBranch error:', e);
   }
 }
@@ -2835,12 +2771,11 @@ window._todayDMY        = todayDMY;
 // ============================================================
 //  Exponer funciones al scope global para que login() las use
 // ============================================================
-window._fbLoadState          = loadPersistentState;
-window._fbSaveState          = savePersistentState;
-window._fbSaveNow            = saveNow;
-window._fbSyncDueno          = syncDuenoOnShiftClose;
-window._fbSavePw             = savePasswordsToFirebase;
-window.syncDuenoChangesToBranch = syncDuenoChangesToBranch;
+window._fbLoadState = loadPersistentState;
+window._fbSaveState = savePersistentState;
+window._fbSaveNow   = saveNow;
+window._fbSyncDueno = syncDuenoOnShiftClose;
+window._fbSavePw    = savePasswordsToFirebase;
 
 // ============================================================
 //  Parchear login para cargar datos de la sucursal correcta
