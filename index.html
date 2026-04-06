@@ -2429,7 +2429,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
+  apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
   authDomain: "fonoprueba1-9614b.firebaseapp.com",
   projectId: "fonoprueba1-9614b",
   storageBucket: "fonoprueba1-9614b.firebasestorage.app",
@@ -2473,13 +2473,11 @@ async function syncDuenoChangesToBranch(branchId, changedRows){
     const branchData = branchSnap.data();
 
     // ── Inventario ───────────────────────────────────────────────────────────
-    // Si se pasan filas específicas, aplicar solo esas (ajuste puntual).
-    // Si no, propagar todo el inventario de la sucursal desde el state del dueño.
-    const rowsToApply = changedRows
-      ? (Array.isArray(changedRows) ? changedRows : [changedRows])
-      : (state.inventory||[]).filter(r => r.branchId === branchId);
-
-    if(rowsToApply.length > 0){
+    // SOLO se toca el inventario si se pasan filas específicas (ajuste puntual).
+    // Cuando la llamada viene del guardado automático (sin filas), el inventario
+    // de la sucursal NO se modifica para evitar sobreescribir con datos incorrectos.
+    if(changedRows){
+      const rowsToApply = Array.isArray(changedRows) ? changedRows : [changedRows];
       const inv = Array.isArray(branchData.inventory) ? branchData.inventory : [];
       rowsToApply.forEach(r => {
         if(!r || !r.productId) return;
@@ -2488,6 +2486,7 @@ async function syncDuenoChangesToBranch(branchId, changedRows){
       });
       branchData.inventory = inv;
     }
+    // Si no hay changedRows, conservar el inventario que ya tiene la sucursal en Firebase
 
     // ── Pedidos ──────────────────────────────────────────────────────────────
     branchData.orders = (state.orders||[]).filter(o => o.branchId === branchId);
