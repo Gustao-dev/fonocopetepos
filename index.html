@@ -1750,6 +1750,26 @@ function renderUsuarios(){
           </div>`).join('') : '<div class="muted">Aún no hay cierres guardados.</div>'}
         </div>
       </div>
+      ${state.currentUser.role !== 'operador' ? `
+      <div class="card" style="margin-top:14px;border:2px solid #f97316">
+        <h3 style="color:#f97316">🔁 Mover pedidos entre fechas</h3>
+        <div class="muted small" style="margin-bottom:12px">Mueve todos los pedidos de una fecha a otra. Útil para corregir turnos registrados con fecha incorrecta. La información de cada pedido (repartidor, medio de pago, productos) se mantiene intacta.</div>
+        <div class="grid2" style="gap:10px">
+          <div>
+            <label>Fecha origen (pedidos a mover)</label>
+            <input id="moveOrdersFrom" class="input" type="date">
+          </div>
+          <div>
+            <label>Fecha destino (fecha correcta)</label>
+            <input id="moveOrdersTo" class="input" type="date">
+          </div>
+        </div>
+        <div id="moveOrdersPreview" style="margin-top:10px;font-size:13px;color:#6b7280"></div>
+        <div class="row" style="margin-top:12px;gap:10px">
+          <button class="btn" style="background:#f97316;color:#fff" onclick="previewMoveOrders()">Vista previa</button>
+          <button class="btn btn-primary" onclick="confirmMoveOrders()">Mover pedidos</button>
+        </div>
+      </div>` : ''}
     </div>
   </div>`;
   document.getElementById('sn').oninput=e=>state.shiftName=e.target.value;
@@ -1770,6 +1790,118 @@ function renderUsuarios(){
     }
   }
 }
+function previewMoveOrders(){
+  const fromInput = document.getElementById('moveOrdersFrom');
+  const toInput   = document.getElementById('moveOrdersTo');
+  const preview   = document.getElementById('moveOrdersPreview');
+  if(!fromInput || !toInput || !preview) return;
+
+  // Convertir yyyy-mm-dd a dd-mm-yyyy
+  const toDateStr = (ymd) => {
+    if(!ymd) return '';
+    const [y,m,d] = ymd.split('-');
+    return `${d}-${m}-${y}`;
+  };
+
+  const fromDMY = toDateStr(fromInput.value);
+  const toDMY   = toDateStr(toInput.value);
+
+  if(!fromDMY || !toDMY){ preview.textContent = 'Selecciona ambas fechas.'; return; }
+  if(fromDMY === toDMY){ preview.textContent = 'La fecha origen y destino son iguales.'; return; }
+
+  const branchId = workingBranchId();
+  const affected = (state.orders||[]).filter(o => o.date === fromDMY && o.branchId === branchId);
+  const closure  = (state.shiftClosures||[]).find(s => s.date === fromDMY && s.branchId === branchId);
+
+  if(!affected.length && !closure){
+    preview.innerHTML = `<span style="color:#dc2626">No hay pedidos ni cierre de turno registrados en <strong>${fromDMY}</strong> para esta sucursal.</span>`;
+    return;
+  }
+
+  const totalVentas = affected.reduce((a,o) => a + Number(o.total||0), 0);
+  preview.innerHTML = `
+    <div style="background:#fff7ed;border:1px solid #f97316;border-radius:8px;padding:10px">
+      <div><strong>${affected.length} pedido(s)</strong> con ventas de <strong>${clp(totalVentas)}</strong> serán movidos de <strong>${fromDMY}</strong> a <strong>${toDMY}</strong>.</div>
+      ${closure ? `<div style="margin-top:6px">El cierre de turno del <strong>${fromDMY}</strong> también se actualizará a <strong>${toDMY}</strong>.</div>` : ''}
+      <div style="margin-top:6px;color:#6b7280">Toda la información de los pedidos (repartidor, medio de pago, productos, montos) se conserva intacta.</div>
+    </div>
+  `;
+}
+
+function confirmMoveOrders(){
+  const fromInput = document.getElementById('moveOrdersFrom');
+  const toInput   = document.getElementById('moveOrdersTo');
+  const preview   = document.getElementById('moveOrdersPreview');
+  if(!fromInput || !toInput) return;
+
+  const toDateStr = (ymd) => {
+    if(!ymd) return '';
+    const [y,m,d] = ymd.split('-');
+    return `${d}-${m}-${y}`;
+  };
+
+  const fromDMY = toDateStr(fromInput.value);
+  const toDMY   = toDateStr(toInput.value);
+
+  if(!fromDMY || !toDMY){ alert('Selecciona ambas fechas.'); return; }
+  if(fromDMY === toDMY){ alert('La fecha origen y destino son iguales.'); return; }
+
+  const branchId = workingBranchId();
+  const affected = (state.orders||[]).filter(o => o.date === fromDMY && o.branchId === branchId);
+  const closureIdx = (state.shiftClosures||[]).findIndex(s => s.date === fromDMY && s.branchId === branchId);
+
+  if(!affected.length && closureIdx < 0){
+    alert('No hay pedidos ni cierre de turno en esa fecha para esta sucursal.');
+    return;
+  }
+
+  const msg = [
+    `¿Confirmas mover ${affected.length} pedido(s) de ${fromDMY} a ${toDMY}?`,
+    closureIdx >= 0 ? `El cierre de turno del ${fromDMY} también se moverá a ${toDMY}.` : '',
+    'Esta acción no se puede deshacer.'
+  ].filter(Boolean).join('
+
+');
+
+  if(!confirm(msg)) return;
+
+  // Mover pedidos
+  affected.forEach(o => { o.date = toDMY; });
+
+  // Mover cierre de turno
+  if(closureIdx >= 0){
+    state.shiftClosures[closureIdx].date = toDMY;
+  }
+
+  // Registrar en audit
+  state.audit.push({
+    id: uid(),
+    action: 'Corrección de fecha',
+    user: state.currentUser ? state.currentUser.name : 'Desconocido',
+    branchId: branchId,
+    date: nowDateLocal(),
+    time: nowTime(),
+    detail: `${affected.length} pedido(s) movidos de ${fromDMY} a ${toDMY}${closureIdx >= 0 ? ' · cierre de turno actualizado' : ''}`
+  });
+
+  if(preview) preview.innerHTML = `<div style="background:#f0fdf4;border:1px solid #16a34a;border-radius:8px;padding:10px;color:#16a34a"><strong>✓ ${affected.length} pedido(s) movidos correctamente a ${toDMY}.</strong></div>`;
+
+  render();
+
+  // Guardar en Firebase y sincronizar a la sucursal si es el dueño
+  if(typeof window._fbSaveNow === 'function'){
+    window._fbSaveNow().then(() => {
+      if(state.currentUser && state.currentUser.role === 'dueno' && typeof window.syncDuenoChangesToBranch === 'function'){
+        window.syncDuenoChangesToBranch(branchId);
+      } else if(typeof window._fbSyncDueno === 'function'){
+        window._fbSyncDueno();
+      }
+    });
+  } else if(typeof window._fbSaveState === 'function'){
+    window._fbSaveState();
+  }
+}
+
 function renderAuditoria(){
   const isDueno = state.currentUser && state.currentUser.role === 'dueno';
   const allRows = (state.audit || []).slice().reverse(); // más recientes primero
@@ -2429,12 +2561,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAaVnmtkVUXovDlRaRA3xOHn2hV-KwPcoI",
-  authDomain: "fonoprueba1-9614b.firebaseapp.com",
-  projectId: "fonoprueba1-9614b",
-  storageBucket: "fonoprueba1-9614b.firebasestorage.app",
-  messagingSenderId: "694367577729",
-  appId: "1:694367577729:web:4d72a990d4dc9dd7c04f80"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROJECT.firebaseapp.com",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_PROJECT.firebasestorage.app",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -2473,44 +2605,77 @@ async function syncDuenoChangesToBranch(branchId, changedRows){
     }
     const branchData = branchSnap.data();
 
-    // ── Aplicar las filas de inventario que cambiaron ────────────────────────
-    // Normalizar: aceptar fila única o array de filas
+    // ── Inventario: mezcla quirúrgica ────────────────────────────────────────
+    // Si se pasan filas específicas, aplicar solo esas.
+    // Si no se pasan filas, sincronizar todo el inventario de la sucursal.
     const rowsToApply = changedRows
       ? (Array.isArray(changedRows) ? changedRows : [changedRows])
-      : [];
+      : (state.inventory||[]).filter(r => r.branchId === branchId);
 
     if(rowsToApply.length > 0){
       const inv = Array.isArray(branchData.inventory) ? branchData.inventory : [];
       rowsToApply.forEach(changedRow => {
         if(!changedRow || !changedRow.productId) return;
         const idx = inv.findIndex(r => r.productId === changedRow.productId);
-        if(idx >= 0){
-          inv[idx] = changedRow;
-        } else {
-          inv.push(changedRow);
-        }
+        if(idx >= 0){ inv[idx] = changedRow; } else { inv.push(changedRow); }
       });
       branchData.inventory = inv;
     }
 
-    // ── Agregar el último registro de auditoría relacionado ──────────────────
-    const lastAuditEntry = (state.audit||[]).slice().reverse().find(a =>
-      a.branchId === branchId
-    );
-    if(lastAuditEntry){
-      const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
-      const alreadyExists = existingAudit.some(a => a.id === lastAuditEntry.id);
-      if(!alreadyExists){
-        branchData.audit = [lastAuditEntry, ...existingAudit];
-      }
-    }
+    // ── Pedidos de la sucursal ───────────────────────────────────────────────
+    branchData.orders = (state.orders||[]).filter(o => o.branchId === branchId);
 
-    // ── Sincronizar también las facturas de esta sucursal ────────────────────
+    // ── Facturas de la sucursal ──────────────────────────────────────────────
     branchData.invoices = (state.invoices||[]).filter(i => i.branchId === branchId);
 
-    // Timestamp de sincronización
-    branchData._lastSync = new Date().toISOString();
+    // ── Cierres de turno de la sucursal ─────────────────────────────────────
+    branchData.shiftClosures = (state.shiftClosures||[]).filter(s => s.branchId === branchId);
 
+    // ── Turno abierto / fecha activa / nombre de turno ───────────────────────
+    // Solo propagar si el dueño está trabajando en esta sucursal actualmente
+    if(typeof workingBranchId === 'function' && workingBranchId() === branchId){
+      branchData.turnOpen   = state.turnOpen;
+      branchData.activeDate = state.activeDate;
+      branchData.shiftName  = state.shiftName;
+    }
+
+    // ── Capital de la sucursal ───────────────────────────────────────────────
+    if(state.capitalIncreases && typeof state.capitalIncreases === 'object'){
+      if(!branchData.capitalIncreases) branchData.capitalIncreases = {};
+      Object.keys(state.capitalIncreases).forEach(k => {
+        branchData.capitalIncreases[k] = state.capitalIncreases[k];
+      });
+    }
+    if(state.monthlyExpenses && typeof state.monthlyExpenses === 'object'){
+      branchData.monthlyExpenses = state.monthlyExpenses;
+    }
+
+    // ── Productos (precios pueden haber cambiado) ────────────────────────────
+    if(Array.isArray(state.products) && state.products.length > 0){
+      branchData.products = state.products;
+    }
+
+    // ── Audit: mezclar sin duplicados ────────────────────────────────────────
+    const newAudit = (state.audit||[]).filter(a => !a.branchId || a.branchId === branchId);
+    const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
+    const auditMap = new Map();
+    [...existingAudit, ...newAudit].forEach(a => {
+      const k = a.id || (a.user+'|'+a.action+'|'+a.date+'|'+a.time);
+      if(!auditMap.has(k)) auditMap.set(k, a);
+    });
+    branchData.audit = Array.from(auditMap.values())
+      .sort((a,b) => {
+        const da = (a.date||'').split('-').reverse().join('')+(a.time||'');
+        const db2= (b.date||'').split('-').reverse().join('')+(b.time||'');
+        return db2.localeCompare(da);
+      });
+
+    // ── Nunca guardar contraseñas en el doc de sucursal ─────────────────────
+    if(Array.isArray(branchData.users)){
+      branchData.users = branchData.users.map(u=>{ const {password,...rest}=u; return rest; });
+    }
+
+    branchData._lastSync = new Date().toISOString();
     await setDoc(doc(db, 'pos', branchId), branchData);
     setSyncStatus('✓ Sincronizado con ' + branchId, '#16a34a');
   }catch(e){
@@ -2568,6 +2733,14 @@ async function saveNow(){
     delete clean.topProductsCategory;
     await setDoc(doc(db, 'pos', key), clean);
     setSyncStatus('✓ Guardado', '#16a34a');
+    // Si es el dueño y tiene una sucursal específica seleccionada,
+    // propagar automáticamente todos los cambios a esa sucursal
+    if(state.currentUser && state.currentUser.role === 'dueno'){
+      const bid = typeof workingBranchId === 'function' ? workingBranchId() : null;
+      if(bid && bid !== 'all'){
+        await syncDuenoChangesToBranch(bid);
+      }
+    }
   }catch(e){
     setSyncStatus('⚠ Error al guardar', '#dc2626');
     console.error('Firebase save error:', e);
@@ -2589,6 +2762,13 @@ async function savePersistentState(){
       delete clean.topProductsCategory;
       await setDoc(doc(db, 'pos', key), clean);
       setSyncStatus('✓ Guardado', '#16a34a');
+      // Si es el dueño con sucursal específica seleccionada, propagar a la sucursal
+      if(state.currentUser && state.currentUser.role === 'dueno'){
+        const bid = typeof workingBranchId === 'function' ? workingBranchId() : null;
+        if(bid && bid !== 'all'){
+          await syncDuenoChangesToBranch(bid);
+        }
+      }
     }catch(e){
       setSyncStatus('⚠ Error al guardar', '#dc2626');
       console.error('Firebase save error:', e);
