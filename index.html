@@ -2049,16 +2049,7 @@ function saveOrder(){if(!state.cart.length) return alert('No hay pedido'); if(!s
       applyStock(item.components, -item.qty);
     }); const newOrder = {id:uid(),date:state.activeDate,branchId:workingBranchId(),branchName:branch().name,createdBy:state.currentUser.name,courierId:state.selectedCourierId,courierName:c.name,time:nowTime(),items:savedCart,subtotal:subtotal(),transbankFee:transbankFee(),total:total(),paymentMode:state.paymentMode,payments};
     state.orders.unshift(newOrder);
-    state.audit.push({id:uid(),action:'Pedido registrado', user:state.currentUser.name, branchId:workingBranchId(), date:state.activeDate, time:nowTime(), detail:`${savedCart.map(i=>i.qty+'x '+i.name).join(', ')} · ${clp(total())} · ${state.paymentMode} · ${c.name}`}); cancelOrder(); state.selectedHistoryDate=state.activeDate; state.view='libro'; render(); if(typeof window._fbSaveNow==='function'){
-      const _bid = typeof workingBranchId==='function' ? workingBranchId() : null;
-      window._fbSaveNow().then(()=>{
-        if(state.currentUser && state.currentUser.role==='dueno' && _bid && _bid!=='all' && typeof window.syncDuenoChangesToBranch==='function'){
-          window.syncDuenoChangesToBranch(_bid);
-        } else if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function'){
-          syncDuenoOnShiftClose();
-        }
-      });
-    } else if(typeof window._fbSaveState==='function') window._fbSaveState();}
+    state.audit.push({id:uid(),action:'Pedido registrado', user:state.currentUser.name, branchId:workingBranchId(), date:state.activeDate, time:nowTime(), detail:`${savedCart.map(i=>i.qty+'x '+i.name).join(', ')} · ${clp(total())} · ${state.paymentMode} · ${c.name}`}); cancelOrder(); state.selectedHistoryDate=state.activeDate; state.view='libro'; render(); if(typeof window._fbSaveNow==='function') window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); }); else if(typeof window._fbSaveState==='function') window._fbSaveState();}
 function deleteSale(orderId){
   if(!confirm('¿Eliminar este pedido?')) return;
   const idx=state.orders.findIndex(o=>o.id===orderId);
@@ -2134,26 +2125,12 @@ function toggleTurn(){
     closeCurrentShift();
     render();
     if(typeof window._fbSaveNow==='function'){
-      window._fbSaveNow().then(()=>{
-        const bid = typeof workingBranchId==='function' ? workingBranchId() : null;
-        if(state.currentUser && state.currentUser.role==='dueno' && bid && bid!=='all' && typeof window.syncDuenoChangesToBranch==='function'){
-          window.syncDuenoChangesToBranch(bid);
-        } else if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function'){
-          syncDuenoOnShiftClose();
-        }
-      });
+      window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
     } else if(typeof window._fbSaveState==='function') window._fbSaveState();
   } else {
     state.turnOpen = true;
     render();
-    if(typeof window._fbSaveNow==='function'){
-      window._fbSaveNow().then(()=>{
-        const bid = typeof workingBranchId==='function' ? workingBranchId() : null;
-        if(state.currentUser && state.currentUser.role==='dueno' && bid && bid!=='all' && typeof window.syncDuenoChangesToBranch==='function'){
-          window.syncDuenoChangesToBranch(bid);
-        }
-      });
-    } else if(typeof window._fbSaveState==='function') window._fbSaveState();
+    if(typeof window._fbSaveState==='function') window._fbSaveState();
   }
 }
 function openNewDay(){
@@ -2177,14 +2154,7 @@ function openNewDay(){
   state.view='dashboard';
   render();
   if(typeof window._fbSaveNow==='function'){
-    window._fbSaveNow().then(()=>{
-      const bid = typeof workingBranchId==='function' ? workingBranchId() : null;
-      if(state.currentUser && state.currentUser.role==='dueno' && bid && bid!=='all' && typeof window.syncDuenoChangesToBranch==='function'){
-        window.syncDuenoChangesToBranch(bid);
-      } else if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function'){
-        syncDuenoOnShiftClose();
-      }
-    });
+    window._fbSaveNow().then(()=>{ if(state.currentUser && state.currentUser.role!=='dueno' && typeof syncDuenoOnShiftClose==='function') syncDuenoOnShiftClose(); });
   } else if(typeof window._fbSaveState==='function') window._fbSaveState();
 }
 function selectHistoryDate(d){state.selectedHistoryDate=d; renderLibro()}
@@ -2495,10 +2465,6 @@ async function syncDuenoChangesToBranch(branchId, changedRows){
   try{
     setSyncStatus('Sincronizando sucursal…', '#6b7280');
 
-    // Leer el documento actual de la sucursal desde Firebase
-    // SIEMPRE partimos de los datos reales de Firebase — nunca del state del dueño —
-    // para evitar sobreescribir pedidos, facturas o cierres que el encargado haya
-    // registrado después de la última sincronización.
     const branchSnap = await getDoc(doc(db, 'pos', branchId));
     if(!branchSnap.exists()){
       setSyncStatus('⚠ Sucursal no encontrada en Firebase', '#dc2626');
@@ -2507,8 +2473,9 @@ async function syncDuenoChangesToBranch(branchId, changedRows){
     const branchData = branchSnap.data();
 
     // ── Inventario ───────────────────────────────────────────────────────────
-    // Solo se toca si se pasan filas específicas (ajuste puntual del dueño).
-    // NUNCA se sobreescribe el inventario completo desde el state del dueño.
+    // SOLO se toca el inventario si se pasan filas específicas (ajuste puntual).
+    // Cuando la llamada viene del guardado automático (sin filas), el inventario
+    // de la sucursal NO se modifica para evitar sobreescribir con datos incorrectos.
     if(changedRows){
       const rowsToApply = Array.isArray(changedRows) ? changedRows : [changedRows];
       const inv = Array.isArray(branchData.inventory) ? branchData.inventory : [];
@@ -2519,68 +2486,38 @@ async function syncDuenoChangesToBranch(branchId, changedRows){
       });
       branchData.inventory = inv;
     }
-    // Sin changedRows: el inventario de Firebase queda intacto
+    // Si no hay changedRows, conservar el inventario que ya tiene la sucursal en Firebase
 
     // ── Pedidos ──────────────────────────────────────────────────────────────
-    // Mezcla segura: combinar los pedidos que ya tiene la sucursal en Firebase
-    // con los que tiene el dueño en su state para esa sucursal.
-    // Usamos el id como clave — el que existe en Firebase gana si hay conflicto,
-    // pero los pedidos nuevos del dueño (ej: borrado, edición) se aplican.
-    {
-      const fbOrders = Array.isArray(branchData.orders) ? branchData.orders : [];
-      const duenoOrders = (state.orders||[]).filter(o => o.branchId === branchId);
-      // Construir mapa con todos los pedidos — dueño tiene precedencia (sus cambios son más recientes)
-      const orderMap = new Map();
-      fbOrders.forEach(o => orderMap.set(o.id, o));
-      duenoOrders.forEach(o => orderMap.set(o.id, o));
-      branchData.orders = Array.from(orderMap.values())
-        .sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.time||'').localeCompare(a.time||''));
-    }
+    branchData.orders = (state.orders||[]).filter(o => o.branchId === branchId);
 
     // ── Facturas ─────────────────────────────────────────────────────────────
-    {
-      const fbInvoices = Array.isArray(branchData.invoices) ? branchData.invoices : [];
-      const duenoInvoices = (state.invoices||[]).filter(i => i.branchId === branchId);
-      const invoiceMap = new Map();
-      fbInvoices.forEach(i => invoiceMap.set(i.id, i));
-      duenoInvoices.forEach(i => invoiceMap.set(i.id, i));
-      branchData.invoices = Array.from(invoiceMap.values());
-    }
+    branchData.invoices = (state.invoices||[]).filter(i => i.branchId === branchId);
 
     // ── Cierres de turno ─────────────────────────────────────────────────────
-    {
-      const fbClosures = Array.isArray(branchData.shiftClosures) ? branchData.shiftClosures : [];
-      const duenoClosures = (state.shiftClosures||[]).filter(s => s.branchId === branchId);
-      const closureMap = new Map();
-      fbClosures.forEach(s => closureMap.set(s.id, s));
-      duenoClosures.forEach(s => closureMap.set(s.id, s));
-      branchData.shiftClosures = Array.from(closureMap.values());
-    }
+    branchData.shiftClosures = (state.shiftClosures||[]).filter(s => s.branchId === branchId);
 
-    // ── Estado del turno ─────────────────────────────────────────────────────
-    // Solo si el dueño abrió/cerró turno en esta sucursal explícitamente.
+    // ── Estado del turno (solo si el dueño está en esta sucursal ahora) ──────
     if(typeof workingBranchId === 'function' && workingBranchId() === branchId){
       branchData.turnOpen  = state.turnOpen;
       branchData.activeDate= state.activeDate;
       branchData.shiftName = state.shiftName;
     }
 
-    // ── Capital: mezcla aditiva (nunca reemplazar lo que ya tenía la sucursal) ─
+    // ── Capital y gastos ─────────────────────────────────────────────────────
     if(state.capitalIncreases && typeof state.capitalIncreases === 'object'){
-      branchData.capitalIncreases = Object.assign(
-        {}, branchData.capitalIncreases||{}, state.capitalIncreases
-      );
+      branchData.capitalIncreases = Object.assign({}, branchData.capitalIncreases||{}, state.capitalIncreases);
     }
     if(state.monthlyExpenses && typeof state.monthlyExpenses === 'object'){
       branchData.monthlyExpenses = state.monthlyExpenses;
     }
 
-    // ── Productos ────────────────────────────────────────────────────────────
+    // ── Productos (precios, carta actualizada) ───────────────────────────────
     if(Array.isArray(state.products) && state.products.length > 0){
       branchData.products = state.products;
     }
 
-    // ── Audit: solo agregar entradas nuevas, nunca eliminar las existentes ───
+    // ── Audit: mezclar sin duplicados ────────────────────────────────────────
     const newAudit = (state.audit||[]).filter(a => !a.branchId || a.branchId === branchId);
     const existingAudit = Array.isArray(branchData.audit) ? branchData.audit : [];
     const auditMap = new Map();
@@ -2657,8 +2594,11 @@ async function saveNow(){
     delete clean.topProductsCategory;
     await setDoc(doc(db, 'pos', key), clean);
     setSyncStatus('✓ Guardado', '#16a34a');
-    // Nota: la sincronización a la sucursal la maneja cada función llamante
-    // con los parámetros correctos — no se hace aquí para evitar dobles escrituras.
+    // Si es dueño con sucursal específica, propagar a esa sucursal automáticamente
+    if(state.currentUser && state.currentUser.role === 'dueno'){
+      const bid = typeof workingBranchId === 'function' ? workingBranchId() : null;
+      if(bid && bid !== 'all') await syncDuenoChangesToBranch(bid);
+    }
   }catch(e){
     setSyncStatus('⚠ Error al guardar', '#dc2626');
     console.error('Firebase save error:', e);
@@ -2680,14 +2620,10 @@ async function savePersistentState(){
       delete clean.topProductsCategory;
       await setDoc(doc(db, 'pos', key), clean);
       setSyncStatus('✓ Guardado', '#16a34a');
-      // Para cambios de configuración del dueño (productos, capital, repartidores, etc.)
-      // propagar a la sucursal. syncDuenoChangesToBranch sin changedRows conserva los
-      // pedidos/facturas/cierres de Firebase intactos — solo actualiza config.
+      // Si es dueño con sucursal específica, propagar a esa sucursal automáticamente
       if(state.currentUser && state.currentUser.role === 'dueno'){
         const bid = typeof workingBranchId === 'function' ? workingBranchId() : null;
-        if(bid && bid !== 'all' && typeof syncDuenoChangesToBranch === 'function'){
-          await syncDuenoChangesToBranch(bid);
-        }
+        if(bid && bid !== 'all') await syncDuenoChangesToBranch(bid);
       }
     }catch(e){
       setSyncStatus('⚠ Error al guardar', '#dc2626');
@@ -2704,10 +2640,10 @@ async function syncDuenoOnShiftClose(){
   try{
     setSyncStatus('Sincronizando con dueño…', '#6b7280');
 
+    // Guardar primero el estado actual de la sucursal sin debounce
+    await saveNow();
+
     // Leer los 3 documentos de sucursales en paralelo
-    // NOTA: no llamamos saveNow() aquí — el caller ya lo hizo antes de llamarnos,
-    // y hacerlo de nuevo causaría que syncDuenoChangesToBranch sobreescriba pos/la
-    // con datos del dueño antes de que leamos el inventario actualizado del encargado.
     const [snapConce, snapLa, snapChi] = await Promise.all([
       getDoc(doc(db, 'pos', 'conce')),
       getDoc(doc(db, 'pos', 'la')),
@@ -3033,16 +2969,23 @@ window.logout = function(){
 };
 
 // ============================================================
-//  closeCurrentShift: el guardado y la sincronización al dueño
-//  las maneja toggleTurn directamente — no se parchea aquí
-//  para evitar que syncDuenoOnShiftClose se llame dos veces.
+//  Parchear closeCurrentShift para sincronizar al dueño
+//  (solo como respaldo — toggleTurn ya lo llama con saveNow)
 // ============================================================
+const _originalCloseShift = window.closeCurrentShift;
+window.closeCurrentShift = async function(){
+  // Esperar que la función original termine antes de guardar en Firebase
+  await Promise.resolve(_originalCloseShift.apply(this, arguments));
+  // saveNow garantiza escritura inmediata antes de consolidar al dueño
+  await saveNow();
+  await syncDuenoOnShiftClose();
+};
 
 // ============================================================
 //  Envolver funciones clave para guardar automáticamente
 // ============================================================
 function wrapFunction(name){
-  // closeCurrentShift la maneja toggleTurn directamente — no necesita wrapping
+  // No re-envolver closeCurrentShift (ya lo parcheamos arriba)
   if(name === 'closeCurrentShift') return;
   const original = window[name];
   if(typeof original !== 'function') return;
